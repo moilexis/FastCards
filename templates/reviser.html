@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Session de Révision</h2>
+<p>Cartes restantes pour aujourd'hui : <strong>{{ remaining }}</strong></p>
+
+{% if card %}
+    <div style="background: #1e1e1e; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+        <h3>Question :</h3>
+        <p style="font-size: 1.4em;">{{ card.question }}</p>
+        
+        <hr style="border-color: #444;">
+        
+        <div id="answer-zone" style="display: none;">
+            <h3>Réponse :</h3>
+            <p style="font-size: 1.4em; color: #4caf50;">{{ card.answer }}</p>
+            
+            <form method="POST" style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+                <input type="hidden" name="card_id" value="{{ card.id }}">
+                <button type="submit" name="status" value="fail" style="background: #d32f2f;">❌ À revoir</button>
+                <button type="submit" name="status" value="success" style="background: #388e3c;">✅ Maîtrisé</button>
+            </form>
+        </div>
+
+        <button id="btn-reveal" onclick="document.getElementById('answer-zone').style.display='block'; this.style.display='none';">👁️ Afficher la réponse</button>
+    </div>
+{% else %}
+    <p> Félicitations ! Vous avez révisé toutes vos cartes pour aujourd'hui.</p>
+{% endif %}
+{% endblock %}

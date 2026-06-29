@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>🚀 Saisie en Bloc (Ajout rapide)</h2>
+<p>Entrez vos flashcards sous le format : <code>Question ; Réponse</code> (une par ligne).</p>
+
+<form method="POST">
+    <textarea name="bulk_data" rows="10" placeholder="Capitale de la France ; Paris&#10;10 + 10 ; 20&#10;Variable en Python ; Un espace de stockage nommé" required></textarea>
+    <br>
+    <button type="submit">Importer mon paquet</button>
+</form>
+{% endblock %}

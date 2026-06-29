@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastCards</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <style>
+        nav { display: flex; gap: 15px; background: #222; padding: 10px; border-radius: 5px; margin-bottom: 20px;}
+        nav a { color: white; text-decoration: none; }
+        .flash { padding: 10px; margin-bottom: 15px; border-radius: 4px; background-color: #ffe3e3; color: #cc0000; }
+        .flash.success { background-color: #e3ffe5; color: #00cc22; }
+    </style>
+</head>
+<body>
+    <nav>
+        {% if current_user.is_authenticated %}
+            <strong>Bonjour, {{ current_user.username }}</strong> |
+            <a href="{{ url_for('index') }}">Saisie en masse</a> |
+            <a href="{{ url_for('reviser') }}">Réviser</a> |
+            <a href="{{ url_for('logout') }}">Déconnexion</a>
+        {% else %}
+            <a href="{{ url_for('login') }}">Connexion</a> |
+            <a href="{{ url_for('register') }}">Inscription</a>
+        {% endif %}
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
