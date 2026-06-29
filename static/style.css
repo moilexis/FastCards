@@ -1,0 +1,117 @@
+/* ==========================================================================
+   1. VARIABLES & THÈME (Gestion automatique Clair / Sombre)
+   ========================================================================== */
+:root {
+    /* Couleurs par défaut (Mode Clair) */
+    --background: #ffffff;
+    --text: #212529;
+    --primary: #007bff;
+    --primary-hover: #0056b3;
+    --border: #ced4da;
+    --bg-input: #f8f9fa;
+    --container-width: 700px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Couleurs pour le Mode Sombre */
+        --background: #121212;
+        --text: #e0e0e0;
+        --primary: #375a7f;
+        --primary-hover: #2b4764;
+        --border: #444444;
+        --bg-input: #1e1e1e;
+    }
+}
+
+/* ==========================================================================
+   2. MISE EN PAGE GLOBALE (RESPONSIVE)
+   ========================================================================== */
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--background);
+    color: var(--text);
+    line-height: 1.6;
+    max-width: var(--container-width);
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 15px;
+    margin-bottom: 30px;
+}
+
+header a {
+    color: var(--primary);
+    text-decoration: none;
+    margin-left: 10px;
+}
+
+header a:hover {
+    text-decoration: underline;
+}
+
+/* ==========================================================================
+   3. FORMULAIRES & ENTRÉES (Idéal pour la saisie en masse)
+   ========================================================================== */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Espace automatique entre les champs */
+    margin-bottom: 20px;
+}
+
+label {
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="password"],
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background-color: var(--bg-input);
+    color: var(--text);
+    font-size: 1rem;
+    box-sizing: border-box; /* Évite que le champ dépasse de l'écran */
+}
+
+textarea {
+    resize: vertical; /* Permet d'agrandir la zone de saisie en hauteur seulement */
+    min-height: 150px;
+}
+
+/* ==========================================================================
+   4. BOUTONS & ALERTES
+   ========================================================================== */
+button, input[type="submit"] {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+button:hover, input[type="submit"]:hover {
+    background-color: var(--primary-hover);
+}
+
+/* Zone pour les messages d'erreur/succès de Flask (aside) */
+aside {
+    background-color: var(--bg-input);
+    border-left: 4px solid var(--primary);
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
