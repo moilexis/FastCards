@@ -56,19 +56,22 @@ header a:hover {
     text-decoration: underline;
 }
 
+h3 {
+    color: #444444;
+}
+
 /* ==========================================================================
-   3. FORMULAIRES & ENTRÉES (Idéal pour la saisie en masse)
+   3. FORMULAIRES & ENTRÉES 
    ========================================================================== */
 form {
     display: flex;
     flex-direction: column;
     gap: 15px; /* Espace automatique entre les champs */
     margin-bottom: 20px;
+    color: #212529;
 }
 
-label {
-    font-weight: bold;
-}
+
 
 input[type="text"],
 input[type="password"],

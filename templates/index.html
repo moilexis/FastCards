@@ -1,11 +1,77 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>🚀 Saisie en Bloc (Ajout rapide)</h2>
-<p>Entrez vos flashcards sous le format : <code>Question ; Réponse</code> (une par ligne).</p>
+<h2>Tableau de bord</h2>
 
-<form method="POST">
-    <textarea name="bulk_data" rows="10" placeholder="Capitale de la France ; Paris&#10;10 + 10 ; 20&#10;Variable en Python ; Un espace de stockage nommé" required></textarea>
-    <br>
-    <button type="submit">Importer mon paquet</button>
-</form>
+<div style="display: flex; gap: 40px; margin-bottom: 30px; flex-wrap: wrap;">
+    <!-- Formulaire Catégorie -->
+    <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
+        <h3>Créer une Catégorie</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_category">
+            <input type="text" name="category_name" placeholder="Ex: Langues, Sciences..." required style="width: 80%; padding: 5px;">
+            <button type="submit" style="margin-top: 5px;">Ajouter</button>
+        </form>
+    </div>
+
+    <!-- Formulaire Collection -->
+    <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
+        <h3>Ajouter une Collection</h3>
+        <form method="POST">
+            <input type="hidden" name="action" value="add_collection">
+            <label>Dans la catégorie :</label><br>
+            <select name="category_id" required style="width: 85%; padding: 5px; margin-bottom: 5px;">
+                <option value="aucune" selected>Aucune </option>
+                {% for cat in tree %}
+                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+            <br>
+            <input type="text" name="collection_name" placeholder="Ex: Allemand, Anatomie..." required style="width: 80%; padding: 5px;">
+            <button type="submit" style="margin-top: 5px;">Ajouter</button>
+        </form>
+    </div>
+</div>
+
+<hr>
+<div>
+<h3>Mes Flashcards</h3>
+
+    <!-- 1. Affichage des collections à la racine -->
+    {% if root_collections %}
+        <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #4a5568; background: #edf2f7;">
+            <strong style="font-size: 1.1em; color: #4a5568;">Divers</strong>
+            <ul style="margin-top: 5px;">
+                {% for col in root_collections %}
+                    <li style="margin: 5px 0;">
+                        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #2d3748; font-weight: 500;">
+                            {{ col.name }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <!-- 2. Affichage des Catégories et leurs collections -->
+    {% if not tree and not root_collections %}
+        <p>Vous n'avez pas encore créé de dossier ou de collection.</p>
+    {% else %}
+        {% for cat in tree %}
+            <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #3182ce; background: #fafafa;">
+                <strong style="font-size: 1.2em; color: #2b6cb0;">📁 {{ cat.name }}</strong>
+                <ul style="margin-top: 5px;">
+                    {% for col in cat.collections %}
+                        <li style="margin: 5px 0;">
+                            <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #2d3748; font-weight: 500;">
+                                 {{ col.name }}
+                            </a>
+                        </li>
+                    {% else %}
+                        <li style="color: #a0aec0; list-style: none; font-style: italic;">Aucune collection dans cette catégorie.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    {% endif %}
+</div>
 {% endblock %}

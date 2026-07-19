@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+<p><a href="{{ url_for('index') }}">⬅ Retour au tableau de bord</a></p>
+
+<h2>Collection : {{ collection.name }}</h2>
+<p>Catégorie  : <strong>{{ collection.category_name if collection.category_name else "Divers" }}</strong></p>
+
+<div style="background: #e2e8f0; padding: 15px; border-radius: 5px; margin-top: 20px;">
+    <p style="color: black; ">L'arborescence fonctionne ! Les cartes de ce paquet seront gérées ici.</p>
+    <p style="color: black; ">En attendant, il reste pas mal de boulot : </p>
+    <ul style="color: black; " >
+        <li>ajouter la saisie de masse</li>
+        <li>permettre les révisions sur les cartes</li>
+        <li>visualiser et supprimer les cartes avec une interface propre</li>
+    </ul>
+</div>
+{% endblock %}

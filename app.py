@@ -74,13 +74,71 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- ACCUEIL TEMPORAIRE (ÉTAPE 1) ---
+# --- LOGIQUE DE L'ARBORESCENCE (SÉCURISÉE) ---
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
-    # Cet index temporaire nous sert uniquement à tester que l'authentification fonctionne
-    return f"<h1>Bienvenue {current_user.username} !</h1><p>L'étape 1 fonctionne parfaitement. <a href='/logout'>Se déconnecter</a></p>"
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'add_category':
+            category_name = request.form.get('category_name')
+            if category_name:
+                db.create_category(current_user.id, category_name)
+                flash(f"Catégorie '{category_name}' ajoutée !", "success")
+                
+        elif action == 'add_collection':
+            category_id = request.form.get('category_id')
+            collection_name = request.form.get('collection_name')
+            
+            if collection_name:
+                # Si 'aucune' est sélectionné, category_id devient None
+                if category_id == 'aucune':
+                    db.create_collection(current_user.id, None, collection_name)
+                    flash(f"Collection '{collection_name}' ajoutée à la racine !", "success")
+                else:
+                    # Sécurité : on vérifie que la catégorie appartient à l'utilisateur
+                    user_categories = [str(c['id']) for c in db.get_categories_by_user(current_user.id)]
+                    if category_id in user_categories:
+                        db.create_collection(current_user.id, int(category_id), collection_name)
+                        flash(f"Collection '{collection_name}' ajoutée !", "success")
+                    else:
+                        flash("Action non autorisée.", "danger")
+                    
+        return redirect(url_for('index'))
+
+    # Récupération des catégories et des collections à la racine
+    user_categories = db.get_categories_by_user(current_user.id)
+    root_collections = db.get_root_collections_by_user(current_user.id)
+    
+    tree_data = []
+    for cat in user_categories:
+        collections = db.get_collections_by_category(cat['id'])
+        tree_data.append({
+            'id': cat['id'],
+            'name': cat['name'],
+            'collections': collections
+        })
+        
+    return render_template('index.html', tree=tree_data, root_collections=root_collections)
+
+@app.route('/collection/<int:collection_id>')
+@login_required
+def view_collection(collection_id):
+    # Route pour inspecter une collection (Sert de transition vers l'Étape 3 et 4)
+    collection = db.get_collection_details(collection_id, current_user.id)
+    if not collection:
+        flash("Collection introuvable ou accès refusé.", "danger")
+        return redirect(url_for('index'))
+        
+    return render_template('collection.html', collection=collection)
+
+@app.route('/reviser')
+@login_required
+def reviser():
+    # Route vers la page dee revision
+    return "<h3>La révision n'est pas encore disponible oupsi 😶‍🌫️</h3><p><a href='/'>Retour</a></p>" 
 
 if __name__ == '__main__':
     app.run(debug=True)
