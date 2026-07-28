@@ -150,3 +150,61 @@ def get_collection_details(collection_id, user_id):
             LEFT JOIN categories ON collections.category_id = categories.id
             WHERE collections.id = ? AND collections.user_id = ?
         ''', (collection_id, user_id)).fetchone()
+    
+# --- GESTION DES CARTES INDIVIDUELLES ---
+# --- GESTION DES CARTES (ÉTAPE 3) ---
+
+def insert_cards_bulk(collection_id, cards_list):
+    """
+    Prend une liste de tuples (question, answer) et les insère en bloc.
+    Par défaut, is_known=0 et is_difficult=0 (via la structure de la table).
+    """
+    with get_db_connection() as conn:
+        conn.executemany(
+            "INSERT INTO cards (collection_id, question, answer) VALUES (?, ?, ?)",
+            [(collection_id, q, a) for q, a in cards_list]
+        )
+        conn.commit()
+
+def get_cards_by_collection(collection_id):
+    """Récupère toutes les cartes associées à une collection donnée."""
+    with get_db_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM cards WHERE collection_id = ?",
+            (collection_id,)
+        ).fetchall()
+    
+def delete_card(card_id, user_id):
+    """Supprime une carte après vérification que la collection appartient bien à l'utilisateur."""
+    with get_db_connection() as conn:
+        conn.execute('''
+            DELETE FROM cards 
+            WHERE id = ? AND collection_id IN (
+                SELECT id FROM collections WHERE user_id = ?
+            )
+        ''', (card_id, user_id))
+        conn.commit()
+
+def toggle_card_difficulty(card_id, user_id):
+    """Inverse l'état difficile (0 -> 1 ou 1 -> 0) d'une carte de manière sécurisée."""
+    with get_db_connection() as conn:
+        conn.execute('''
+            UPDATE cards 
+            SET is_difficult = NOT is_difficult
+            WHERE id = ? AND collection_id IN (
+                SELECT id FROM collections WHERE user_id = ?
+            )
+        ''', (card_id, user_id))
+        conn.commit()
+
+def reset_collection_progress(collection_id):
+    """Remet toutes les cartes d'une collection à is_known = 0."""
+    with get_db_connection() as conn:
+        conn.execute("UPDATE cards SET is_known = 0 WHERE collection_id = ?", (collection_id,))
+        conn.commit()
+
+def update_card_knowledge(card_id, is_known):
+    """Met à jour le statut de révision d'une carte (1 si sue, 0 si non sue)."""
+    with get_db_connection() as conn:
+        conn.execute("UPDATE cards SET is_known = ? WHERE id = ?", (int(is_known), card_id))
+        conn.commit()

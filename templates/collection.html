@@ -1,17 +1,125 @@
 {% extends 'base.html' %}
 {% block content %}
-<p><a href="{{ url_for('index') }}">⬅ Retour au tableau de bord</a></p>
+<p><a href="{{ url_for('index') }}" style="color: #a0aec0; text-decoration: none;">⬅️ Retour au tableau de bord</a></p>
 
 <h2>Collection : {{ collection.name }}</h2>
-<p>Catégorie  : <strong>{{ collection.category_name if collection.category_name else "Divers" }}</strong></p>
+<p style="color: #a0aec0;">Catégorie : <strong>{{ collection.category_name if collection.category_name else "Aucune (Divers)" }}</strong></p>
 
-<div style="background: #e2e8f0; padding: 15px; border-radius: 5px; margin-top: 20px;">
-    <p style="color: black; ">L'arborescence fonctionne ! Les cartes de ce paquet seront gérées ici.</p>
-    <p style="color: black; ">En attendant, il reste pas mal de boulot : </p>
-    <ul style="color: black; " >
-        <li>ajouter la saisie de masse</li>
-        <li>permettre les révisions sur les cartes</li>
-        <li>visualiser et supprimer les cartes avec une interface propre</li>
-    </ul>
+<!-- OPTIONS DE RÉVISION -->
+ <h3>REVISER LA COLECTION </h3>
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+    
+    <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" 
+       style="background: #3182ce; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+        Cartes non-validées
+    </a>
+    <a href="{{ url_for('start_review', collection_id=collection.id, mode='all_reset') }}" 
+       style="background: #38a169; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+        Toutes les cartes (Reset)
+    </a>
+    <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" 
+       style="background: #dd6b20; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+        Cartes difficiles
+    </a>
 </div>
+
+<!-- AJOUT EN MASSE -->
+<div style="background: #1a202c; border: 1px solid #2d3748; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+    <h3> Ajouter des cartes en masse</h3>
+    <form method="POST">
+        <input type="hidden" name="action" value="bulk_import">
+        <textarea name="bulk_data" rows="4" placeholder="Question ; Réponse (Une par ligne)" required style="width: 100%; background: #2d3748; color: #fff; border: 1px solid #4a5568; padding: 10px; border-radius: 5px; font-family: monospace; box-sizing: border-box; margin-top: 10px; resize: vertical;"></textarea>
+        <button type="submit" style="background: #4a5568; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold;">Ajouter ces cartes</button>
+    </form>
+</div>
+
+<hr style="border: 0; border-top: 1px solid #2d3748; margin: 30px 0;">
+
+<!-- VISU DES CARTES -->
+<h3>COLLECTION - LES CARTES ({{ cards|length }})</h3>
+
+{% if not cards %}
+    <div style="background: #1a202c; border: 1px solid #2d3748; padding: 25px; border-radius: 20px; text-align: center;">
+        <p style="color: #a0aec0; font-style: italic; margin: 0;">Aucune carte dans cette collection.</p>
+    </div>
+{% else %}
+    <!-- Conteneur en Grille Responsive -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px;">
+        {% for card in cards %}
+            <!-- Carte format compact -->
+            <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 15px; border-radius: 16px; min-height: 120px; box-sizing: border-box;">
+                
+                <!-- En-tête de la carte : Étoile à gauche, Croix à droite -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <!-- Étoile Difficile Interactive -->
+                    {% if card.is_difficult == 1 %}
+                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.5em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
+                    {% else %}
+                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.5em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
+                    {% endif %}
+                            ★
+                        </button>
+
+                    <!-- Bouton de Suppression  -->
+                        <button type="button" onclick="deleteCardAsync('{{ card.id }}')" style="background: rgba(229, 62, 62, 0.2); border: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#e53e3e" stroke-width="2" stroke-linecap="round">
+                                <line x1="2" y1="2" x2="10" y2="10" />
+                                <line x1="10" y1="2" x2="2" y2="10" />
+                            </svg>
+                        </button>
+                </div>
+
+                <!-- Contenu Recto / Verso -->
+                <div style="text-align: left; word-break: break-word;">
+                    <div style="color: #ffffff; font-weight: 600; font-size: 1em; margin-bottom: 6px;">{{ card.question }}</div>
+                    <div style="color: #a0aec0; font-size: 0.85em; font-style: italic;">{{ card.answer }}</div>
+                </div>
+
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+<!-- 🌐 LE SCRIPT MAGIQUE (AJAX) -->
+<script>
+function toggleDifficultAsync(cardId, buttonElement) {
+    // Crée les données à envoyer
+    let formData = new FormData();
+    formData.append('action', 'toggle_difficult');
+    formData.append('card_id', cardId);
+
+    // Envoie la requête en tâche de fond à Flask
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        if (response.ok) {
+            // Change la couleur de l'étoile instantanément sans recharger !
+            if (buttonElement.style.color === 'rgb(246, 173, 85)') { // #f6ad55
+                buttonElement.style.color = '#718096';
+            } else {
+                buttonElement.style.color = '#f6ad55';
+            }
+        }
+    });
+}
+
+function deleteCardAsync(cardId) {
+    if (!confirm('Supprimer cette carte définitivement ?')) return;
+
+    let formData = new FormData();
+    formData.append('action', 'delete_card');
+    formData.append('card_id', cardId);
+
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        if (response.ok) {
+            // Fait disparaître la ligne de la carte en douceur
+            let row = document.getElementById('card-row-' + cardId);
+            if (row) row.remove();
+        }
+    });
+}
+</script>
 {% endblock %}

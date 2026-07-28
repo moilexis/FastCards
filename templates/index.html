@@ -4,7 +4,7 @@
 
 <div style="display: flex; gap: 40px; margin-bottom: 30px; flex-wrap: wrap;">
     <!-- Formulaire Catégorie -->
-    <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
+    <div style="background: #d1d7e0; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
         <h3>Créer une Catégorie</h3>
         <form method="POST">
             <input type="hidden" name="action" value="add_category">
@@ -14,7 +14,7 @@
     </div>
 
     <!-- Formulaire Collection -->
-    <div style="background: #f4f4f4; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
+    <div style="background: #d1d7e0; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
         <h3>Ajouter une Collection</h3>
         <form method="POST">
             <input type="hidden" name="action" value="add_collection">
@@ -38,12 +38,12 @@
 
     <!-- 1. Affichage des collections à la racine -->
     {% if root_collections %}
-        <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #4a5568; background: #edf2f7;">
-            <strong style="font-size: 1.1em; color: #4a5568;">Divers</strong>
+        <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #2d283e; border-radius: 5px; background: #d1d7e0;">
+            <strong style="font-size: 1.1em; color: #2d283e;">Divers</strong>
             <ul style="margin-top: 5px;">
                 {% for col in root_collections %}
                     <li style="margin: 5px 0;">
-                        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #2d3748; font-weight: 500;">
+                        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #222; font-weight: 500;">
                             {{ col.name }}
                         </a>
                     </li>
@@ -57,12 +57,12 @@
         <p>Vous n'avez pas encore créé de dossier ou de collection.</p>
     {% else %}
         {% for cat in tree %}
-            <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #3182ce; background: #fafafa;">
+            <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #3182ce; border-radius: 5px; background: #d1d7e0;">
                 <strong style="font-size: 1.2em; color: #2b6cb0;">📁 {{ cat.name }}</strong>
                 <ul style="margin-top: 5px;">
                     {% for col in cat.collections %}
                         <li style="margin: 5px 0;">
-                            <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #2d3748; font-weight: 500;">
+                            <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #222; font-weight: 500;">
                                  {{ col.name }}
                             </a>
                         </li>

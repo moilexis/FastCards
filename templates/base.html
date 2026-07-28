@@ -16,8 +16,7 @@
     <nav>
         {% if current_user.is_authenticated %}
             <strong>Bonjour, {{ current_user.username }}</strong> |
-            <a href="{{ url_for('index') }}">Saisie en masse</a> |
-            <a href="{{ url_for('reviser') }}">Réviser</a> |
+            <a href="{{ url_for('index') }}">Tableau de bord</a> |
             <a href="{{ url_for('logout') }}">Déconnexion</a>
         {% else %}
             <a href="{{ url_for('login') }}">Connexion</a> |
