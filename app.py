@@ -1,9 +1,22 @@
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash,session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 import database as db
 import random
+from database import (
+    get_root_categories_by_user,
+    get_subcategories,
+    get_categories_by_user,
+    get_collections_by_category,
+    get_root_collections_by_user,
+    create_category,
+    create_collection,
+    delete_collection,
+    move_collection,
+    delete_category,
+    merge_collections
+    )
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "un_secret_tres_bien_garde_12345")
@@ -12,7 +25,6 @@ app.secret_key = os.environ.get("SECRET_KEY", "un_secret_tres_bien_garde_12345")
 login_manager = LoginManager()
 login_manager.login_view = 'login'  # Redirection si accès non autorisé
 login_manager.init_app(app)
-
 # Initialisation de la BDD au démarrage
 db.init_db()
 
@@ -70,59 +82,116 @@ def login():
     return render_template('login.html')
 
 @app.route('/logout')
-@login_required
+
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
 # --- LOGIQUE DE L'ARBORESCENCE (SÉCURISÉE) ---
-
-@app.route('/', methods=['GET', 'POST'])
-@login_required
-def index():
-    if request.method == 'POST':
-        action = request.form.get('action')
-        
-        if action == 'add_category':
-            category_name = request.form.get('category_name')
-            if category_name:
-                db.create_category(current_user.id, category_name)
-                flash(f"Catégorie '{category_name}' ajoutée !", "success")
-                
-        elif action == 'add_collection':
-            category_id = request.form.get('category_id')
-            collection_name = request.form.get('collection_name')
-            
-            if collection_name:
-                # Si 'aucune' est sélectionné, category_id devient None
-                if category_id == 'aucune':
-                    db.create_collection(current_user.id, None, collection_name)
-                    flash(f"Collection '{collection_name}' ajoutée à la racine !", "success")
-                else:
-                    # Sécurité : on vérifie que la catégorie appartient à l'utilisateur
-                    user_categories = [str(c['id']) for c in db.get_categories_by_user(current_user.id)]
-                    if category_id in user_categories:
-                        db.create_collection(current_user.id, int(category_id), collection_name)
-                        flash(f"Collection '{collection_name}' ajoutée !", "success")
-                    else:
-                        flash("Action non autorisée.", "danger")
-                    
-        return redirect(url_for('index'))
-
-    # Récupération des catégories et des collections à la racine
-    user_categories = db.get_categories_by_user(current_user.id)
-    root_collections = db.get_root_collections_by_user(current_user.id)
+def build_category_tree(category_id, user_id):
+    """Fonction récursive qui construit l'arbre complet des sous-catégories et leurs collections."""
+    sub_cats = get_subcategories(category_id, user_id)
+    sub_tree = []
     
-    tree_data = []
-    for cat in user_categories:
-        collections = db.get_collections_by_category(cat['id'])
-        tree_data.append({
-            'id': cat['id'],
-            'name': cat['name'],
-            'collections': collections
-        })
+    for sub in sub_cats:
+        sub_dict = dict(sub)
+        sub_dict['collections'] = get_collections_by_category(sub['id'])
+        # Appel récursif pour aller chercher les enfants du sous-dossier (niveau 3, 4, etc.)
+        sub_dict['subcategories'] = build_category_tree(sub['id'], user_id)
+        sub_tree.append(sub_dict)
         
-    return render_template('index.html', tree=tree_data, root_collections=root_collections)
+    return sub_tree
+
+def get_category_full_path(category_id, user_id):
+    """Reconstruit le chemin complet d'une catégorie (ex: Allemand > situer dans le temps > verbes)."""
+    path = []
+    current_id = category_id
+    
+    with db.get_db_connection() as conn:
+        while current_id is not None:
+            cat = conn.execute(
+                "SELECT id, name, parent_id FROM categories WHERE id = ? AND user_id = ?", 
+                (current_id, user_id)
+            ).fetchone()
+            
+            if not cat:
+                break
+                
+            path.insert(0, cat['name'])  # Ajoute au début pour garder l'ordre hiérarchique
+            current_id = cat['parent_id']
+            
+    return " / ".join(path)
+
+
+@app.route('/')
+@login_required 
+def index():
+    user_id = current_user.id
+    
+    # 1. Construction récursive de l'arborescence
+    root_categories = get_root_categories_by_user(user_id)
+    tree = []
+    for cat in root_categories:
+        cat_dict = dict(cat)
+        cat_dict['collections'] = get_collections_by_category(cat['id'])
+        cat_dict['subcategories'] = build_category_tree(cat['id'], user_id)
+        tree.append(cat_dict)
+
+    # 2. Collections orphelines
+    root_collections = get_root_collections_by_user(user_id)
+    
+    # 3. Récupère TOUTES les catégories et calcule leur chemin d'accès complet pour le <select>
+    raw_categories = get_categories_by_user(user_id)
+    formatted_categories = []
+    for cat in raw_categories:
+        formatted_categories.append({
+            'id': cat['id'],
+            'full_path': get_category_full_path(cat['id'], user_id)
+        })
+    
+    # On trie la liste par ordre alphabétique des chemins
+    formatted_categories.sort(key=lambda x: x['full_path'])
+
+    with db.get_db_connection() as conn:
+        all_user_collections = conn.execute(
+            "SELECT id, name FROM collections WHERE user_id = ?", 
+            (current_user.id,)
+        ).fetchall()
+
+    return render_template(
+        'index.html', 
+        tree=tree, 
+        root_collections=root_collections,
+        all_categories=formatted_categories,
+        all_user_collections=all_user_collections # Passé au template
+    )
+# Route pour créer une catégorie ou sous-catégorie
+@app.route('/create_category', methods=['POST'])
+@login_required
+def handle_create_category():
+    user_id = current_user.id
+    name = request.form.get('name')
+    parent_id = request.form.get('parent_id')
+    
+    # name.strip() évite de créer un dossier avec juste des espaces "   "
+    if name and name.strip():
+        create_category(user_id, name, parent_id)
+        
+    return redirect(url_for('index'))
+
+@app.route('/create_collection', methods=['POST'])
+@login_required
+def create_collection_route():
+    user_id = current_user.id
+    name = request.form.get('name')
+    category_id = request.form.get('category_id')
+    
+    if name and name.strip():
+        create_collection(user_id, category_id, name)
+        
+    return redirect(url_for('index'))
+
+
 @app.route('/collection/<int:collection_id>', methods=['GET', 'POST'])
 @login_required
 def view_collection(collection_id):
@@ -213,7 +282,7 @@ def render_review_card(collection_id):
     
     if index >= len(card_ids):
         session.pop('review_cards', None)
-        flash("🎉 Session de révision terminée !", "success")
+        flash("Session de révision terminée !", "success")
         return redirect(url_for('view_collection', collection_id=collection_id))
         
     current_card_id = card_ids[index]
@@ -236,6 +305,59 @@ def render_review_card(collection_id):
         card = conn.execute("SELECT * FROM cards WHERE id = ?", (current_card_id,)).fetchone()
         
     return render_template('review.html', collection=collection, card=card, progress=(index+1, len(card_ids)))
+
+#suppression/deplacement/fusion
+
+@app.route('/delete_category/<int:category_id>', methods=['POST'])
+@login_required
+def handle_delete_category(category_id):
+    user_id = current_user.id
+    success = delete_category(category_id, user_id)
+    
+    if success:
+        flash("Dossier supprimé avec succès.", "success")
+    else:
+        flash("Impossible de supprimer ce dossier : il contient des sous-dossiers ou des collections !", "danger")
+        
+    return redirect(url_for('index'))
+
+
+@app.route('/delete_collection/<int:collection_id>', methods=['POST'])
+@login_required
+def handle_delete_collection(collection_id):
+    user_id = current_user.id
+    delete_collection(collection_id, user_id)
+    flash("Collection supprimée.", "success")
+    return redirect(url_for('index'))
+
+
+@app.route('/move_collection/<int:collection_id>', methods=['POST'])
+@login_required
+def handle_move_collection(collection_id):
+    user_id = current_user.id
+    new_category_id = request.form.get('category_id')
+    
+    move_collection(collection_id, new_category_id, user_id)
+    flash("Collection déplacée avec succès.", "success")
+    return redirect(url_for('index'))
+
+@app.route('/merge_collections/<int:collection_id>', methods=['POST'])
+@login_required
+def handle_merge_collections(collection_id):
+    user_id = current_user.id
+    target_col_id = request.form.get('target_collection_id')
+    new_name = request.form.get('new_name')
+    
+    if target_col_id and new_name and new_name.strip():
+        new_col_id = merge_collections(user_id, collection_id, int(target_col_id), new_name)
+        if new_col_id:
+            flash("Collections fusionnées avec succès !", "success")
+        else:
+            flash("Erreur lors de la fusion.", "danger")
+    else:
+        flash("Veuillez remplir tous les champs pour la fusion.", "warning")
+        
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)

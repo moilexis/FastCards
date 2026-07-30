@@ -1,77 +1,148 @@
 {% extends 'base.html' %}
+
 {% block content %}
-<h2>Tableau de bord</h2>
+<div style="max-width: 900px; margin: 0 auto;">
 
-<div style="display: flex; gap: 40px; margin-bottom: 30px; flex-wrap: wrap;">
-    <!-- Formulaire Catégorie -->
-    <div style="background: #d1d7e0; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
-        <h3>Créer une Catégorie</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="add_category">
-            <input type="text" name="category_name" placeholder="Ex: Langues, Sciences..." required style="width: 80%; padding: 5px;">
-            <button type="submit" style="margin-top: 5px;">Ajouter</button>
-        </form>
+    <!-- SECTION FORMULAIRES DE CRÉATION -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 30px;">
+        
+        <!-- Formulaire : Nouvelle Catégorie / Sous-catégorie -->
+        <div style="background: #2d3748; padding: 15px; border-radius: 12px; border: 1px solid #4a5568;">
+            <h4 style="margin-top: 0; color: #d1d7e0;"> Créer un Dossier / Sous-dossier</h4>
+            <form action="{{ url_for('handle_create_category') }}" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" name="name" placeholder="Nom du dossier..." required 
+                       style="padding: 10px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+                
+                <select name="parent_id" style="padding: 10px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+                    <option value="">-- Dossier Racine (aucun parent) --</option>
+                    {% for cat in all_categories %}
+                        <option value="{{ cat.id }}">{{ cat.full_path }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" style="background: #802bb1; color: #2d283e; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                    + Créer Dossier
+                </button>
+            </form>
+        </div>
+
+        <!-- Formulaire : Nouvelle Collection -->
+        <div style="background: #2d3748; padding: 15px; border-radius: 12px; border: 1px solid #4a5568;">
+            <h4 style="margin-top: 0; color: #d1d7e0;"> Créer une Collection de Cartes</h4>
+            <form action="{{ url_for('create_collection_route') }}" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="text" name="name" placeholder="Nom de la collection..." required 
+                       style="padding: 10px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+                
+                <select name="category_id" style="padding: 10px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+                    <option value="">-- Placer à la racine --</option>
+                    {% for cat in all_categories %}
+                        <option value="{{ cat.id }}">{{ cat.full_path }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" style="background: #802bb1; color: #2d283e; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                    + Créer Collection
+                </button>
+            </form>
+        </div>
+
     </div>
 
-    <!-- Formulaire Collection -->
-    <div style="background: #d1d7e0; padding: 15px; border-radius: 5px; flex: 1; min-width: 250px;">
-        <h3>Ajouter une Collection</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="add_collection">
-            <label>Dans la catégorie :</label><br>
-            <select name="category_id" required style="width: 85%; padding: 5px; margin-bottom: 5px;">
-                <option value="aucune" selected>Aucune </option>
-                {% for cat in tree %}
-                    <option value="{{ cat.id }}">{{ cat.name }}</option>
-                {% endfor %}
-            </select>
-            <br>
-            <input type="text" name="collection_name" placeholder="Ex: Allemand, Anatomie..." required style="width: 80%; padding: 5px;">
-            <button type="submit" style="margin-top: 5px;">Ajouter</button>
-        </form>
-    </div>
-</div>
-
-<hr>
-<div>
-<h3>Mes Flashcards</h3>
-
-    <!-- 1. Affichage des collections à la racine -->
-    {% if root_collections %}
-        <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #2d283e; border-radius: 5px; background: #d1d7e0;">
-            <strong style="font-size: 1.1em; color: #2d283e;">Divers</strong>
-            <ul style="margin-top: 5px;">
-                {% for col in root_collections %}
-                    <li style="margin: 5px 0;">
-                        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #222; font-weight: 500;">
-                            {{ col.name }}
+    <!-- SECTION ARBORESCENCE DE NAVIGATION -->
+{% macro render_category(cat) %}
+    <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; margin-top: 8px;">
+        <summary style="padding: 10px 15px; font-weight: bold; cursor: pointer; color: #e2e8f0; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between;">
+            <span>📁 {{ cat.name }}</span>
+            <span style="font-size: 0.8em; color: #a0aec0; font-weight: normal;">
+                ({{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s))
+            </span>
+        </summary>
+        
+        <div style="padding: 10px 15px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 10px;">
+            
+            <!-- 1. Collections contenues dans ce dossier -->
+            {% if cat.collections %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;">
+                    {% for col in cat.collections %}
+                        <a href="{{ url_for('view_collection', collection_id=col.id) }}" 
+                           style="background: #2d3748; border: 1px solid #3182ce; padding: 8px 12px; border-radius: 6px; color: #ebf8ff; text-decoration: none; font-size: 0.9em;">
+                             {{ col.name }}
                         </a>
-                    </li>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- 2. Sous-dossiers (Appel récursif pour afficher le niveau suivant) -->
+            {% for sub in cat.subcategories %}
+                {{ render_category(sub) }}
+            {% endfor %}
+
+            {% if not cat.collections and not cat.subcategories %}
+                <p style="color: #718096; font-style: italic; margin: 0; font-size: 0.85em;">Ce dossier est vide.</p>
+            {% endif %}
+
+        </div>
+    </details>
+{% endmacro %}
+
+
+<!-- SECTION ARBORESCENCE DE NAVIGATION -->
+<h3 style="color: #fff; margin-bottom: 15px;">MON ESPACE DE RÉVISION</h3>
+
+<div style="display: flex; flex-direction: column; gap: 12px;">
+    
+    <!-- Dossiers Principaux (Racines) -->
+    {% for cat in tree %}
+        <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; overflow: hidden;">
+            <summary style="padding: 15px 20px; font-weight: bold; font-size: 1.1em; cursor: pointer; color: #ffffff; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+                <span>📂 {{ cat.name }}</span>
+                <span style="font-size: 0.85em; color: #a0aec0; font-weight: normal;">
+                    {{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s)
+                </span>
+            </summary>
+
+            <div style="padding: 15px 20px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 10px;">
+                
+                <!-- Collections directes de la racine -->
+                {% if cat.collections %}
+                    <div style="font-size: 0.85em; color: #cbd5e0; font-weight: bold;">COLLECTIONS DIRECTES :</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                        {% for col in cat.collections %}
+                            <a href="{{ url_for('view_collection', collection_id=col.id) }}" 
+                               style="background: #2d3748; border: 1px solid #3182ce; padding: 10px; border-radius: 8px; color: #ebf8ff; text-decoration: none; font-weight: 500;">
+                                 {{ col.name }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Sous-dossiers via la Macro Récursive -->
+                {% for sub in cat.subcategories %}
+                    {{ render_category(sub) }}
                 {% endfor %}
-            </ul>
+
+                {% if not cat.collections and not cat.subcategories %}
+                    <p style="color: #718096; font-style: italic; margin: 0; font-size: 0.9em;">Ce dossier est vide.</p>
+                {% endif %}
+
+            </div>
+        </details>
+    {% endfor %}
+
+    <!-- Collections Sans Dossier -->
+    {% if root_collections %}
+        <div style="margin-top: 15px;">
+            <h4 style="color: #a0aec0; margin-bottom: 10px;">COLLECTIONS SANS DOSSIER</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
+                {% for col in root_collections %}
+                    <a href="{{ url_for('view_collection', collection_id=col.id) }}" 
+                       style="background: #2d3748; border: 1px solid #4a5568; padding: 12px; border-radius: 8px; color: #e2e8f0; text-decoration: none; font-weight: 500;">
+                         {{ col.name }}
+                    </a>
+                {% endfor %}
+            </div>
         </div>
     {% endif %}
 
-    <!-- 2. Affichage des Catégories et leurs collections -->
-    {% if not tree and not root_collections %}
-        <p>Vous n'avez pas encore créé de dossier ou de collection.</p>
-    {% else %}
-        {% for cat in tree %}
-            <div style="margin-bottom: 20px; padding: 10px; border-left: 4px solid #3182ce; border-radius: 5px; background: #d1d7e0;">
-                <strong style="font-size: 1.2em; color: #2b6cb0;">📁 {{ cat.name }}</strong>
-                <ul style="margin-top: 5px;">
-                    {% for col in cat.collections %}
-                        <li style="margin: 5px 0;">
-                            <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="text-decoration: none; color: #222; font-weight: 500;">
-                                 {{ col.name }}
-                            </a>
-                        </li>
-                    {% else %}
-                        <li style="color: #a0aec0; list-style: none; font-style: italic;">Aucune collection dans cette catégorie.</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endfor %}
-    {% endif %}
 </div>
 {% endblock %}

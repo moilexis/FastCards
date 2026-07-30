@@ -227,3 +227,107 @@ def update_card_knowledge(card_id, is_known):
     with get_db_connection() as conn:
         conn.execute("UPDATE cards SET is_known = ? WHERE id = ?", (int(is_known), card_id))
         conn.commit()
+
+
+#GESTION DES MISES A JOUR DES DONNES DE L'USER
+
+
+def delete_collection(collection_id, user_id):
+    """Supprime une collection et toutes ses cartes associées."""
+    with get_db_connection() as conn:
+        # Les cartes liées sont supprimées automatiquement si ON DELETE CASCADE est actif,
+        # sinon on les supprime explicitement par sécurité :
+        conn.execute("DELETE FROM cards WHERE collection_id = ?", (collection_id,))
+        conn.execute("DELETE FROM collections WHERE id = ? AND user_id = ?", (collection_id, user_id))
+        conn.commit()
+
+def move_collection(collection_id, new_category_id, user_id):
+    """Déplace une collection vers une autre catégorie (ou à la racine si new_category_id est None)."""
+    if new_category_id in (None, '', 'None'):
+        new_category_id = None
+    else:
+        new_category_id = int(new_category_id)
+
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE collections SET category_id = ? WHERE id = ? AND user_id = ?",
+            (new_category_id, collection_id, user_id)
+        )
+        conn.commit()
+
+def is_category_empty(category_id, user_id):
+    """Vérifie si une catégorie contient des sous-catégories ou des collections."""
+    with get_db_connection() as conn:
+        has_subcats = conn.execute(
+            "SELECT 1 FROM categories WHERE parent_id = ? AND user_id = ?", 
+            (category_id, user_id)
+        ).fetchone()
+        
+        has_cols = conn.execute(
+            "SELECT 1 FROM collections WHERE category_id = ?", 
+            (category_id,)
+        ).fetchone()
+
+        # Retourne True si aucun enfant trouvé
+        return not (has_subcats or has_cols)
+
+def delete_category(category_id, user_id):
+    """Supprime une catégorie si et seulement si elle est vide."""
+    if not is_category_empty(category_id, user_id):
+        return False # Échec : le dossier n'est pas vide
+        
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM categories WHERE id = ? AND user_id = ?", (category_id, user_id))
+        conn.commit()
+    return True # Succès
+
+def merge_collections(user_id, source_col_id_1, source_col_id_2, new_name):
+    """
+    Fusionne deux collections (source 1 et source 2) dans une nouvelle collection.
+    La nouvelle collection hérite de la catégorie/emplacement de la source 1.
+    """
+    with get_db_connection() as conn:
+        # 1. Récupère la catégorie de la 1ère collection pour placer la nouvelle au même endroit
+        col1 = conn.execute(
+            "SELECT category_id FROM collections WHERE id = ? AND user_id = ?", 
+            (source_col_id_1, user_id)
+        ).fetchone()
+        
+        if not col1:
+            return None
+            
+        category_id = col1['category_id']
+
+        # 2. Crée la nouvelle collection
+        cursor = conn.execute(
+            "INSERT INTO collections (user_id, category_id, name) VALUES (?, ?, ?)",
+            (user_id, category_id, new_name.strip())
+        )
+        new_col_id = cursor.lastrowid
+
+        # 3. Récupère toutes les cartes de la 1ère collection et les insère dans la nouvelle
+        cards_1 = conn.execute(
+            "SELECT question, answer, is_difficult, is_known FROM cards WHERE collection_id = ?", 
+            (source_col_id_1,)
+        ).fetchall()
+        
+        for c in cards_1:
+            conn.execute(
+                "INSERT INTO cards (collection_id, question, answer, is_difficult, is_known) VALUES (?, ?, ?, ?, ?)",
+                (new_col_id, c['question'], c['answer'], c['is_difficult'], c['is_known'])
+            )
+
+        # 4. Récupère toutes les cartes de la 2nde collection et les insère dans la nouvelle
+        cards_2 = conn.execute(
+            "SELECT question, answer, is_difficult, is_known FROM cards WHERE collection_id = ?", 
+            (source_col_id_2,)
+        ).fetchall()
+        
+        for c in cards_2:
+            conn.execute(
+                "INSERT INTO cards (collection_id, question, answer, is_difficult, is_known) VALUES (?, ?, ?, ?, ?)",
+                (new_col_id, c['question'], c['answer'], c['is_difficult'], c['is_known'])
+            )
+
+        conn.commit()
+        return new_col_id
