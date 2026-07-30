@@ -13,7 +13,7 @@ def get_db_connection():
 def init_db():
     """
     Initialise la base de données et crée les tables si elles n'existent pas.
-    Pour rénitialiser la base, simplement supprimer le fichier 'flashcards.db'
+    Pour réinitialiser la base, simplement supprimer le fichier 'flashcards.db'
     """
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -27,13 +27,15 @@ def init_db():
             )
         ''')
         
-        # 2. Table des catégories 
+        # 2. Table des catégories (avec parent_id pour gérer les sous-catégories)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
+                parent_id INTEGER DEFAULT NULL,
                 name TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE CASCADE
             )
         ''')
 
@@ -42,7 +44,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS collections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                category_id INTEGER, -- Peut être NULL maintenant !
+                category_id INTEGER, -- Peut être NULL (racine)
                 name TEXT NOT NULL,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
@@ -89,23 +91,44 @@ def get_user_by_username(username):
     with get_db_connection() as conn:
         return conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
     
-# --- GESTION DES CATÉGORIES & COLLECTIONS  ---
+# --- GESTION DES CATÉGORIES & COLLECTIONS ---
 
-def create_category(user_id, name):
-    """Crée une nouvelle catégorie pour un utilisateur spécifique."""
+def create_category(user_id, name, parent_id=None):
+    """Crée une catégorie ou sous-catégorie pour un utilisateur."""
+    if parent_id in (None, '', 'None', 'aucune'):
+        parent_id = None
+    else:
+        parent_id = int(parent_id)
+
     with get_db_connection() as conn:
         conn.execute(
-            "INSERT INTO categories (user_id, name) VALUES (?, ?)",
-            (user_id, name.strip())
+            "INSERT INTO categories (user_id, parent_id, name) VALUES (?, ?, ?)",
+            (user_id, parent_id, name.strip())
         )
         conn.commit()
 
 def get_categories_by_user(user_id):
-    """Récupère toutes les catégories créées par l'utilisateur."""
+    """Récupère TOUTES les catégories créées par l'utilisateur."""
     with get_db_connection() as conn:
         return conn.execute(
             "SELECT * FROM categories WHERE user_id = ? ORDER BY name ASC",
             (user_id,)
+        ).fetchall()
+
+def get_root_categories_by_user(user_id):
+    """Récupère uniquement les catégories principales (sans parent)."""
+    with get_db_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM categories WHERE user_id = ? AND parent_id IS NULL ORDER BY name ASC",
+            (user_id,)
+        ).fetchall()
+
+def get_subcategories(parent_id, user_id):
+    """Récupère les sous-catégories associées à une catégorie donnée."""
+    with get_db_connection() as conn:
+        return conn.execute(
+            "SELECT * FROM categories WHERE parent_id = ? AND user_id = ? ORDER BY name ASC",
+            (parent_id, user_id)
         ).fetchall()
 
 def create_collection(user_id, category_id, name):
@@ -132,7 +155,7 @@ def get_collections_by_category(category_id):
         ).fetchall()
     
 def get_root_collections_by_user(user_id):
-    """Récupère uniquement les collections à la racine d'un utilisateur, celles sans catégorie"""
+    """Récupère uniquement les collections à la racine d'un utilisateur, celles sans catégorie."""
     with get_db_connection() as conn:
         return conn.execute(
             "SELECT * FROM collections WHERE user_id = ? AND category_id IS NULL ORDER BY name ASC",
@@ -151,14 +174,10 @@ def get_collection_details(collection_id, user_id):
             WHERE collections.id = ? AND collections.user_id = ?
         ''', (collection_id, user_id)).fetchone()
     
-# --- GESTION DES CARTES INDIVIDUELLES ---
-# --- GESTION DES CARTES (ÉTAPE 3) ---
+# --- GESTION DES CARTES ---
 
 def insert_cards_bulk(collection_id, cards_list):
-    """
-    Prend une liste de tuples (question, answer) et les insère en bloc.
-    Par défaut, is_known=0 et is_difficult=0 (via la structure de la table).
-    """
+    """Prend une liste de tuples (question, answer) et les insère en bloc."""
     with get_db_connection() as conn:
         conn.executemany(
             "INSERT INTO cards (collection_id, question, answer) VALUES (?, ?, ?)",
@@ -175,7 +194,7 @@ def get_cards_by_collection(collection_id):
         ).fetchall()
     
 def delete_card(card_id, user_id):
-    """Supprime une carte après vérification que la collection appartient bien à l'utilisateur."""
+    """Supprime une carte après vérification de l'utilisateur."""
     with get_db_connection() as conn:
         conn.execute('''
             DELETE FROM cards 
@@ -186,7 +205,7 @@ def delete_card(card_id, user_id):
         conn.commit()
 
 def toggle_card_difficulty(card_id, user_id):
-    """Inverse l'état difficile (0 -> 1 ou 1 -> 0) d'une carte de manière sécurisée."""
+    """Inverse l'état difficile d'une carte."""
     with get_db_connection() as conn:
         conn.execute('''
             UPDATE cards 
@@ -204,7 +223,7 @@ def reset_collection_progress(collection_id):
         conn.commit()
 
 def update_card_knowledge(card_id, is_known):
-    """Met à jour le statut de révision d'une carte (1 si sue, 0 si non sue)."""
+    """Met à jour le statut de révision d'une carte."""
     with get_db_connection() as conn:
         conn.execute("UPDATE cards SET is_known = ? WHERE id = ?", (int(is_known), card_id))
         conn.commit()
