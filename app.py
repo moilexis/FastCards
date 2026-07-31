@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash,session
+from flask import Flask, render_template, redirect, url_for, request, flash,jsonify
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 import database as db
@@ -16,7 +16,8 @@ from database import (
     move_collection,
     delete_category,
     merge_collections,
-    invert_cards_in_collection
+    invert_cards_in_collection,
+    get_db_connection
     )
 
 app = Flask(__name__)
@@ -217,7 +218,7 @@ def view_collection(collection_id):
                         if q and a: cards_to_insert.append((q, a))
                 if cards_to_insert:
                     db.insert_cards_bulk(collection_id, cards_to_insert)
-                    flash(f"🎉 {len(cards_to_insert)} cartes ajoutées !", "success")
+                    flash(f" {len(cards_to_insert)} cartes ajoutées !", "success")
             return redirect(url_for('view_collection', collection_id=collection_id))
             
         # Action 2 : Toggle Difficile depuis la liste
@@ -271,6 +272,51 @@ def start_review(collection_id, mode):
     session['review_index'] = 0
     
     return redirect(url_for('render_review_card', collection_id=collection_id))
+
+@app.route('/collection/<int:collection_id>/data')
+def get_collection_cards(collection_id):
+    conn = get_db_connection()  
+    cursor = conn.cursor()
+    
+    # Récupère toutes les cartes de cette collection
+    cursor.execute('SELECT id, question, answer, is_known, is_difficult FROM cards WHERE collection_id = ?', (collection_id,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    cards_data = []
+    for row in rows:
+        cards_data.append({
+            'id': row['id'],
+            'question': row['question'],
+            'answer': row['answer'],
+            'is_known': row['is_known'],
+            'is_difficult': row['is_difficult']
+        })
+
+    return jsonify({'cards': cards_data})
+
+# Route pour l'étoile ★ (Difficile)
+@app.route('/card/<int:card_id>/toggle_difficult', methods=['POST'])
+def toggle_card_difficult(card_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE cards SET is_difficult = CASE WHEN is_difficult = 1 THEN 0 ELSE 1 END WHERE id = ?', (card_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
+
+# Route pour Je sais / Je sais pas
+@app.route('/card/<int:card_id>/answer', methods=['POST'])
+def answer_card(card_id):
+    data = request.get_json()
+    knows = data.get('knows', 0)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE cards SET is_known = ? WHERE id = ?', (knows, card_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'ok'})
 
 @app.route('/collection/<int:collection_id>/invert', methods=['POST'])
 def invert_collection(collection_id):

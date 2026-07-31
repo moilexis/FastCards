@@ -16,7 +16,7 @@
     <nav>
         {% if current_user.is_authenticated %}
             <strong>{{ current_user.username }}</strong> |
-            <a href="{{ url_for('index') }}">Acceuil</a> |
+            <a href="{{ url_for('index') }}">Accueil</a> |
             <a href="{{ url_for('logout') }}">Déconnexion</a>
         {% else %}
             <a href="{{ url_for('login') }}">Connexion</a> |

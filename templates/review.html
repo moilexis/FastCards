@@ -2,65 +2,97 @@
 {% block content %}
 <div style="text-align: center; max-width: 600px; margin: 0 auto;">
     
+    <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #a0aec0;">
-        <span>Progression : <strong>{{ progress[0] }} / {{ progress[1] }}</strong></span>
+        <span>Progression : <strong id="progress-text">1 / {{ progress[1]|default(1) }}</strong></span>
         <a href="{{ url_for('view_collection', collection_id=collection.id) }}" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
     </div>
 
     <h2 style="margin-bottom: 25px;">COLLECTION - REVISER</h2>
 
-    <!-- CONTAINER GRANDE CARTE -->
+    <!-- CONTAINER GRANDE CARTE (TON DESIGN BLANC EXACT) -->
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
     display: flex; flex-direction: column; justify-content: center; position: relative; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 40px; margin-left: 10px; margin-right: 10px;">
         
-        <!-- Étoile Cliquable Difficile du coin supérieur gauche -->
-        <form method="POST" style="position: absolute; top: 20px; left: 25px;">
-            <input type="hidden" name="action" value="toggle_difficult_review">
-            {% if card.is_difficult == 1 %}
-                <button type="submit" style="background: none; border: none; font-size: 2.2em; cursor: pointer; color: #f6ad55; transition: transform 0.1s;" title="Marquer comme difficile">
-            {% else %}
-                <button type="submit" style="background: none; border: none; font-size: 2.2em; cursor: pointer; color: #cbd5e0; transition: transform 0.1s;" title="Marquer comme difficile">
-            {% endif %}
-        ★
-    </button>
-        </form>
+        <!-- Étoile Cliquable Difficile -->
+        <button id="star-btn" type="button" onclick="toggleDifficult()" style="position: absolute; top: 20px; left: 25px; background: none; border: none; font-size: 2.2em; cursor: pointer; color: #cbd5e0; transition: color 0.2s;" title="Marquer comme difficile">
+            ★
+        </button>
         
         <!-- Contenu textuel interactif -->
         <div id="card-content" style="cursor: pointer;" onclick="toggleAnswer()">
             <div id="recto-text" style="font-size: 1.2em; font-weight: bold; text-transform: uppercase; overflow: hidden;">
-                {{ card.question }}
+                Chargement...
             </div>
-            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px;overflow: hidden;">
-                {{ card.answer }}
+            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px; overflow: hidden;">
             </div>
             
             <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 30px; font-style: italic;">Retourne la carte en cliquant dessus</p>
         </div>
     </div>
 
-    <!-- BOUTONS DE SÉLECTION -->
+    <!-- BOUTONS DE SÉLECTION (JE SAIS PAS / JE SAIS) -->
     <div style="display: flex; gap: 15px; margin-top: 20px;">
-    <form method="POST" style="flex: 1;">
-        <input type="hidden" name="knows" value="0">
-        <button type="submit" style="background: rgba(229, 62, 62, 0.1); border: 2px solid #e53e3e; color: #e53e3e; padding: 20px 10px; border-radius: 15px; width: 100%; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+        <button type="button" onclick="submitAnswer(0)" style="flex: 1; background: rgba(229, 62, 62, 0.1); border: 2px solid #e53e3e; color: #e53e3e; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
             Je sais pas
         </button>
-    </form>
 
-    <form method="POST" style="flex: 1;">
-        <input type="hidden" name="knows" value="1">
-        <button type="submit" style="background: rgba(56, 161, 105, 0.1); border: 2px solid #38a169; color: #38a169; padding: 20px 10px; border-radius: 15px; width: 100%; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+        <button type="button" onclick="submitAnswer(1)" style="flex: 1; background: rgba(56, 161, 105, 0.1); border: 2px solid #38a169; color: #38a169; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
             Je sais
         </button>
-    </form>
-</div>
+    </div>
 </div>
 
 <script>
+let cards = [];
+let currentIndex = 0;
+
+// Chargement automatique au démarrage
+document.addEventListener("DOMContentLoaded", function() {
+    fetch('/collection/{{ collection.id }}/data')
+        .then(res => res.json())
+        .then(data => {
+            cards = data.cards;
+            if (cards.length > 0) {
+                renderCard();
+            } else {
+                document.getElementById('recto-text').innerText = "Aucune carte à réviser !";
+                document.getElementById('hint').style.display = 'none';
+            }
+        });
+});
+
+// Affiche la carte actuelle sans recharger la page
+function renderCard() {
+    if (currentIndex >= cards.length) {
+        alert("Session de révision terminée ! 🎉");
+        window.location.href = "{{ url_for('view_collection', collection_id=collection.id) }}";
+        return;
+    }
+
+    const card = cards[currentIndex];
+    
+    // Contenu texte
+    document.getElementById("recto-text").innerText = card.question;
+    document.getElementById("verso-text").innerText = card.answer;
+    
+    // Reset l'état de la carte (cachée par défaut)
+    document.getElementById("verso-text").style.display = "none";
+    document.getElementById("hint").style.display = "block";
+    
+    // Mise à jour de l'étoile (Jaune si difficile, gris sinon)
+    const starBtn = document.getElementById("star-btn");
+    starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    
+    // Progression
+    document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
+}
+
+// Afficher/Masquer la réponse
 function toggleAnswer() {
-    var verso = document.getElementById("verso-text");
-    var hint = document.getElementById("hint");
+    const verso = document.getElementById("verso-text");
+    const hint = document.getElementById("hint");
     if (verso.style.display === "none") {
         verso.style.display = "block";
         hint.style.display = "none";
@@ -68,6 +100,36 @@ function toggleAnswer() {
         verso.style.display = "none";
         hint.style.display = "block";
     }
+}
+
+// Basculer l'état difficile (Étoile) sans recharger
+function toggleDifficult() {
+    const card = cards[currentIndex];
+    card.is_difficult = card.is_difficult === 1 ? 0 : 1;
+    
+    // Changement visuel immédiat
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+
+    // Envoi à la BDD en arrière-plan
+    fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
+}
+
+// Enregistrer la réponse (0 = Je sais pas, 1 = Je sais) et passer à la carte suivante
+function submitAnswer(knows) {
+    if (cards.length === 0) return;
+    
+    const card = cards[currentIndex];
+    
+    // Sauvegarde en BDD silencieuse
+    fetch(`/card/${card.id}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ knows: knows })
+    });
+
+    // Passer à la carte suivante INSTANTANÉMENT
+    currentIndex++;
+    renderCard();
 }
 </script>
 {% endblock %}
