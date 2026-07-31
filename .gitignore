@@ -1,5 +1,12 @@
 .venv/
-__pycache__/
+venv/
+ENV/
 instance/
-flashcards.db
+*.db
+*.sqlite3
+__pycache__/
 *.pyc
+
+.env
+.vscode/
+.idea/

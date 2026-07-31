@@ -19,7 +19,7 @@ from database import (
     )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "un_secret_tres_bien_garde_12345")
+app.secret_key = os.environ.get('SECRET_KEY', 'cle_dev_temp_12345')
 
 # Configuration de Flask-Login
 login_manager = LoginManager()
