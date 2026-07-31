@@ -5,8 +5,8 @@
     /* Couleurs par défaut (Mode Clair) */
     --background: #ffffff;
     --text: #212529;
-    --primary: #802bb1;
-    --primary-hover: #692392;
+    --primary: #805ad5;
+    --primary-hover: #7048c7;
     --border: #ced4da;
     --bg-input: #f8f9fa;
     --container-width: 700px;
@@ -17,8 +17,8 @@
         /* Couleurs pour le Mode Sombre */
         --background: #2d283e;
         --text: #e0e0e0;
-        --primary: #802bb1;
-        --primary-hover: #692392;
+        --primary: #805ad5;
+        --primary-hover: #7048c7;
         --border: #444444;
         --bg-input: #1e1e1e;
     }
@@ -57,17 +57,17 @@ header a:hover {
 }
 
 h3 {
-    color: #802bb1;
+    color: #805ad5;
 }
 /* ==========================================================================
    5. LISTES
    ========================================================================== */
 
 li{
-   color: #802bb1;
+   color: #805ad5;
 }
 label {
-    color : #802bb1;
+    color : #805ad5;
 }
 /* ==========================================================================
    3. FORMULAIRES & ENTRÉES 

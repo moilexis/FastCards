@@ -15,7 +15,8 @@ from database import (
     delete_collection,
     move_collection,
     delete_category,
-    merge_collections
+    merge_collections,
+    invert_cards_in_collection
     )
 
 app = Flask(__name__)
@@ -271,6 +272,13 @@ def start_review(collection_id, mode):
     
     return redirect(url_for('render_review_card', collection_id=collection_id))
 
+@app.route('/collection/<int:collection_id>/invert', methods=['POST'])
+def invert_collection(collection_id):
+    # Appelle la fonction d'inversion en BDD
+    invert_cards_in_collection(collection_id)
+    
+    # Redirige immédiatement sur la page de la collection
+    return redirect(url_for('view_collection', collection_id=collection_id))
 
 @app.route('/collection/<int:collection_id>/review/card', methods=['GET', 'POST'])
 @login_required

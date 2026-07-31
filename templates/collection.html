@@ -3,22 +3,22 @@
 <p><a href="{{ url_for('index') }}" style="color: #a0aec0; text-decoration: none;">⬅️ Retour au tableau de bord</a></p>
 
 <h2>Collection : {{ collection.name }}</h2>
-<p style="color: #a0aec0;">Catégorie : <strong>{{ collection.category_name if collection.category_name else "Aucune (Divers)" }}</strong></p>
+<p style="color: #a0aec0;">Catégorie : <strong><span style="color: #ffeebc;">{{ collection.category_name if collection.category_name else "Aucune (Divers)" }}</span></strong></p>
 
 <!-- OPTIONS DE RÉVISION -->
  <h3>REVISER LA COLECTION </h3>
 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
     
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" 
-       style="background: #3182ce; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+       style="background: #3182ce; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
         Cartes non-validées
     </a>
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='all_reset') }}" 
-       style="background: #38a169; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+       style="background: #38a169; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
         Toutes les cartes (Reset)
     </a>
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" 
-       style="background: #dd6b20; color: white; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
+       style="background: #dd6b20; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
         Cartes difficiles
     </a>
 </div>
@@ -29,21 +29,34 @@
     <form method="POST">
         <input type="hidden" name="action" value="bulk_import">
         <textarea name="bulk_data" rows="4" placeholder="Question ; Réponse (Une par ligne)" required style="width: 100%; background: #2d3748; color: #fff; border: 1px solid #4a5568; padding: 10px; border-radius: 5px; font-family: monospace; box-sizing: border-box; margin-top: 10px; resize: vertical;"></textarea>
-        <button type="submit" style="background: #4a5568; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold;">Ajouter ces cartes</button>
+        <button type="submit" style="background: #805ad5; color: #2d283e; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold;">Ajouter ces cartes</button>
     </form>
 </div>
 
 <hr style="border: 0; border-top: 1px solid #2d3748; margin: 30px 0;">
 
 <!-- VISU DES CARTES -->
+ <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
 <h3>COLLECTION - LES CARTES ({{ cards|length }})</h3>
+    <form style=" display: flex;" action="{{ url_for('invert_collection', collection_id=collection.id) }}" method="POST">
+        <button type="submit" class="btn-invert" style="padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; background-color: #805ad5;">
+            ⇄ Inverser  
+        </button>
+    </form>
+
+</div>
 
 {% if not cards %}
     <div style="background: #1a202c; border: 1px solid #2d3748; padding: 25px; border-radius: 20px; text-align: center;">
         <p style="color: #a0aec0; font-style: italic; margin: 0;">Aucune carte dans cette collection.</p>
     </div>
 {% else %}
-    <!-- Conteneur en Grille Responsive -->
+
+
+
+
+<!-- Conteneur en Grille Responsive -->
+
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px;">
         {% for card in cards %}
             <!-- Carte format compact -->
@@ -79,7 +92,8 @@
         {% endfor %}
     </div>
 {% endif %}
-<!-- 🌐 LE SCRIPT MAGIQUE (AJAX) -->
+
+
 <script>
 function toggleDifficultAsync(cardId, buttonElement) {
     // Crée les données à envoyer
