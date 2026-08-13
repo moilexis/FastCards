@@ -166,7 +166,7 @@
                 {% endif %}
 
                 <span style="font-size: 0.85em; color: #a0aec0; font-weight: normal;">
-                    {{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s)
+                    {{ cat.subcategories|length }} S.D • {{ cat.collections|length }} col
                 </span>
                 {% if not cat.subcategories and not cat.collections %}
                     <form action="{{ url_for('handle_delete_category', category_id=cat.id) }}" method="POST" style="margin: 0;">
