@@ -2,7 +2,7 @@
 
 {% block content %}
 <style>
-    /* TES STYLES DE DROPDOWN D'ORIGINE */
+    /* STYLES DE DROPDOWN */
     .dropdown { position: relative; display: inline-block; }
     .dropdown-content {
         display: none; 
@@ -48,7 +48,6 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <h2>Tableau de bord</h2>
-    
 </div>
 
 <!-- FORMULAIRES DE CRÉATION -->
@@ -84,46 +83,61 @@
     </div>
 </div>
 
-<!-- MACRO RECURSIVE POUR AFFICHER LES COLLECTIONS ET DOSSIERS -->
+<!-- MACRO COLLECTION AVEC RATIO -->
 {% macro render_collection_card(col) %}
-    <div style="background: #2d3748; border: 1px solid #805ad5; padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="color: #ebf8ff; text-decoration: none; font-size: 0.9em; font-weight: 500;">
-            &#8226;  {{ col.name }}
+    <div style="background: #2d3748; border: 1px solid #805ad5; padding: 6px 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; min-width: 0;">
+        <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="color: #ebf8ff; text-decoration: none; font-size: 0.88em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 6px;">
+            &#8226; {{ col.name }}
         </a>
-        
-        <!-- Menu 3 points (⋮) -->
-        <div class="dropdown">
-            <button onclick="toggleDropdown('drop-{{ col.id }}')" style="background: none; border: none; color: #a0aec0; font-size: 1.1em; cursor: pointer; padding: 0 5px;">⋮</button>
-            <div id="drop-{{ col.id }}" class="dropdown-content">
-                <button onclick="openMoveModal('{{ col.id }}', '{{ col.name|escape }}')"> Déplacer</button>
-                <button onclick="openMergeModal('{{ col.id }}', '{{ col.name|escape }}')"> Fusionner</button>
-                <form action="{{ url_for('handle_delete_collection', collection_id=col.id) }}" method="POST" onsubmit="return confirm('Supprimer cette collection ?');">
-                    <button type="submit" style="color: #e53e3e;"> Supprimer</button>
-                </form>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <!-- Badge Ratio compact (ex: 34/62) -->
+            <span style="font-size: 0.75em; font-weight: bold; padding: 2px 6px; border-radius: 10px; background: rgba(128, 90, 213, 0.2); color: #d6bcfa; white-space: nowrap;">
+                {{ col.stats.known if col.stats else 0 }}/{{ col.stats.total if col.stats else 0 }}
+            </span>
+            
+            <!-- Menu 3 points -->
+            <div class="dropdown">
+                <button onclick="toggleDropdown('drop-{{ col.id }}')" style="background: none; border: none; color: #a0aec0; font-size: 1.1em; cursor: pointer; padding: 0 2px;">⋮</button>
+                <div id="drop-{{ col.id }}" class="dropdown-content">
+                    <button onclick="openMoveModal('{{ col.id }}', '{{ col.name|escape }}')">Déplacer</button>
+                    <button onclick="openMergeModal('{{ col.id }}', '{{ col.name|escape }}')">Fusionner</button>
+                    <form action="{{ url_for('handle_delete_collection', collection_id=col.id) }}" method="POST" onsubmit="return confirm('Supprimer cette collection ?');">
+                        <button type="submit" style="color: #e53e3e;">Supprimer</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 {% endmacro %}
 
+<!-- MACRO DOSSIER ENFANT AVEC POURCENTAGE (HOMOGÈNE) -->
 {% macro render_category(cat) %}
-<details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 7px; margin-top: 8px;">
-    <summary style="padding: 10px 15px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; border-radius: 7px;">
-        <span>📁 {{ cat.name }}</span>
-        <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
-            <span style="font-size: 0.8em; color: #a0aec0; font-weight: normal;">
-                ({{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s))
+<details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; margin-top: 6px; overflow: hidden;">
+    <summary style="padding: 8px 10px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 0.9em; display: flex; align-items: center; justify-content: space-between;">
+        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📁 {{ cat.name }}</span>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">
+            {% if cat.stats and cat.stats.total > 0 %}
+                <span style="font-size: 0.75em; background: rgba(56, 161, 105, 0.2); color: #68d391; padding: 2px 6px; border-radius: 6px; font-weight: bold;">
+                    {{ cat.stats.percent }}%
+                </span>
+            {% endif %}
+
+            <span style="font-size: 0.75em; color: #a0aec0; font-weight: normal;">
+                ({{ cat.subcategories|length }} S.D. • {{ cat.collections|length }} col.)
             </span>
+
             {% if not cat.subcategories and not cat.collections %}
-                <form action="{{ url_for('handle_delete_category', category_id=cat.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Supprimer ce dossier vide ?');">
-                    <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; cursor: pointer;">supprimer</button>
+                <form action="{{ url_for('handle_delete_category', category_id=cat.id) }}" method="POST" style="margin: 0;">
+                    <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 2px 5px; border-radius: 4px; font-size: 0.7em; cursor: pointer;">supprimer</button>
                 </form>
             {% endif %}
         </div>
     </summary>
     
-    <div style="padding: 10px 15px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 10px; border-bottom-left-radius: 7px; border-bottom-right-radius: 7px;">
+    <div style="padding: 8px 10px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 6px;">
         {% if cat.collections %}
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px;">
                 {% for col in cat.collections %}
                     {{ render_collection_card(col) }}
                 {% endfor %}
@@ -141,41 +155,47 @@
 <h2 style="color: #fff; margin-bottom: 15px;">Mon espace</h2>
 <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box;">
     {% for cat in tree %}
-        <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 12px;">
-            <summary style="padding: 15px 20px; font-weight: bold; font-size: 1.1em; cursor: pointer; color: #ffeebc; display: flex; align-items: center; justify-content: space-between; border-top-left-radius: 11px; border-top-right-radius: 11px;">
-                <span>📂 {{ cat.name }}</span>
-                <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
-                    <span style="font-size: 0.85em; color: #a0aec0; font-weight: normal;">
-                        {{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s)
+    <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; overflow: hidden;">
+        <summary style="padding: 12px 15px; font-weight: bold; font-size: 1.1em; cursor: pointer; color: #ffeebc; display: flex; align-items: center; justify-content: space-between;">
+            <span>📂 {{ cat.name }}</span>
+            <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
+                {% if cat.stats and cat.stats.total > 0 %}
+                    <span style="font-size: 0.8em; background: rgba(56, 161, 105, 0.2); color: #68d391; padding: 3px 8px; border-radius: 6px; font-weight: bold;">
+                        {{ cat.stats.percent }}%
                     </span>
-                    {% if not cat.subcategories and not cat.collections %}
-                        <form action="{{ url_for('handle_delete_category', category_id=cat.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Supprimer ce dossier vide ?');">
-                            <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;"> Supprimer</button>
-                        </form>
-                    {% endif %}
-                </div>
-            </summary>
-
-            <div style="padding: 15px 20px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 10px; border-bottom-left-radius: 11px; border-bottom-right-radius: 11px;">
-                {% if cat.collections %}
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;">
-                        {% for col in cat.collections %}
-                            {{ render_collection_card(col) }}
-                        {% endfor %}
-                    </div>
                 {% endif %}
 
-                {% for sub in cat.subcategories %}
-                    {{ render_category(sub) }}
-                {% endfor %}
+                <span style="font-size: 0.85em; color: #a0aec0; font-weight: normal;">
+                    {{ cat.subcategories|length }} sous-dossier(s) • {{ cat.collections|length }} collection(s)
+                </span>
+                {% if not cat.subcategories and not cat.collections %}
+                    <form action="{{ url_for('handle_delete_category', category_id=cat.id) }}" method="POST" style="margin: 0;">
+                        <button type="submit" style="background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; cursor: pointer;"> Supprimer</button>
+                    </form>
+                {% endif %}
             </div>
-        </details>
+        </summary>
+
+        <div style="padding: 8px 10px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 6px;">
+            {% if cat.collections %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px;">
+                    {% for col in cat.collections %}
+                        {{ render_collection_card(col) }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for sub in cat.subcategories %}
+                {{ render_category(sub) }}
+            {% endfor %}
+        </div>
+    </details>
     {% endfor %}
 
     {% if root_collections %}
         <div style="margin-top: 15px; width: 100%;">
             <h4 style="color: #a0aec0; margin-bottom: 10px;">COLLECTIONS SANS DOSSIER</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px;">
                 {% for col in root_collections %}
                     {{ render_collection_card(col) }}
                 {% endfor %}

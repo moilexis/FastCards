@@ -3,9 +3,9 @@
 <h2>Connexion</h2>
 <form method="POST">
     <label><h3>Nom d'utilisateur :</h3></label>
-    <input  placeholder="Jean Jaures" type="text" name="username" required >
+    <input type="text" name="username" required >
     <label><h3>Mot de passe :</h3></label>
-    <input  placeholder="vous saurez rien de lui" type="password" name="password" required>
+    <input type="password" name="password" required>
     <button type="submit">Se connecter</button>
 </form>
 <p>Pas encore de compte ? <a href="{{ url_for('register') }}">Inscrivez-vous ici</a>.</p>

@@ -1,91 +1,110 @@
 {% extends 'base.html' %}
 {% block content %}
-<p><a href="{{ url_for('index') }}" style="color: #a0aec0; text-decoration: none;">⬅️ Retour au tableau de bord</a></p>
+<p><a href="{{ url_for('index') }}" style="color: #a0aec0; text-decoration: none; font-size: 0.9em;">⬅️ Tableau de bord</a></p>
 
-<h2>Collection : {{ collection.name }}</h2>
-<p style="color: #a0aec0;">Catégorie : <strong><span style="color: #ffeebc;">{{ collection.category_name if collection.category_name else "Aucune (Divers)" }}</span></strong></p>
+<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+    <div>
+        <h2 style="margin: 0; font-size: 1.5em;">{{ collection.name }}</h2>
+        <p style="color: #a0aec0; margin: 4px 0 0 0; font-size: 0.85em;">
+            Catégorie : <strong style="color: #ffeebc;">{{ collection.category_name if collection.category_name else "Aucune" }}</strong>
+        </p>
+    </div>
 
-<!-- OPTIONS DE RÉVISION -->
- <h3>REVISER LA COLECTION </h3>
-<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-    
+    <!-- RATIO & PROGRESSION HARMONIEUSE -->
+    <div style="background: #2d3748; padding: 8px 14px; border-radius: 12px; border: 1px solid #4a5568; min-width: 140px; text-align: center;">
+        <div style="font-size: 0.8em; color: #a0aec0; margin-bottom: 3px;">Progression</div>
+        <div style="font-size: 1.1em; font-weight: bold; color: #68d391;">
+            {{ stats.known|default(0) }} <span style="color: #718096; font-weight: normal; font-size: 0.85em;">/ {{ stats.total|default(cards|length) }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- OPTIONS DE RÉVISION COMPACTES SUR MOBILE -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 20px 0;">
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" 
-       style="background: #3182ce; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
-        Cartes non-validées
+       style="background: #3182ce; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
+        Non-validées
     </a>
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='all_reset') }}" 
-       style="background: #38a169; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
-        Toutes les cartes (Reset)
+       style="background: #38a169; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
+        Toutes (Reset)
     </a>
     <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" 
-       style="background: #dd6b20; color: white; padding: 30px 10px; border-radius: 8px; text-decoration: none; font-weight: bold; flex: 1 1 200px; text-align: center;">
-        Cartes difficiles
+       style="background: #dd6b20; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
+        Difficiles ★
     </a>
 </div>
 
-<!-- AJOUT EN MASSE -->
-<div style="background: #1a202c; border: 1px solid #2d3748; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
-    <h3> Ajouter des cartes en masse</h3>
-    <form method="POST">
-        <input type="hidden" name="action" value="bulk_import">
-        <textarea name="bulk_data" rows="4" placeholder="Question ; Réponse (Une par ligne)" required style="width: 100%; background: #2d3748; color: #fff; border: 1px solid #4a5568; padding: 10px; border-radius: 5px; font-family: monospace; box-sizing: border-box; margin-top: 10px; resize: vertical;"></textarea>
-        <button type="submit" style="background: #805ad5; color: #2d283e; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-weight: bold;">Ajouter ces cartes</button>
-    </form>
-</div>
+<!-- AJOUT EN MASSE (DISCRET ET REPLIABLE SUR MOBILE) -->
+<details style="background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; margin-bottom: 20px;">
+    <summary style="padding: 10px 15px; color: #a0aec0; font-weight: bold; cursor: pointer; font-size: 0.9em;">
+        + Ajouter des cartes en masse
+    </summary>
+    <div style="padding: 15px; border-top: 1px solid #2d3748;">
+        <form method="POST">
+            <input type="hidden" name="action" value="bulk_import">
+            <textarea name="bulk_data" rows="3" placeholder="Question ; Réponse (Une par ligne)" required style="width: 100%; background: #2d3748; color: #fff; border: 1px solid #4a5568; padding: 8px; border-radius: 5px; font-family: monospace; box-sizing: border-box; resize: vertical; font-size: 0.85em;"></textarea>
+            <button type="submit" style="background: #805ad5; color: #fff; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; margin-top: 8px; font-weight: bold; font-size: 0.85em;">Ajouter</button>
+        </form>
+    </div>
+</details>
 
-<hr style="border: 0; border-top: 1px solid #2d3748; margin: 30px 0;">
-
-<!-- VISU DES CARTES -->
- <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-<h3>COLLECTION - LES CARTES ({{ cards|length }})</h3>
-    <form style=" display: flex;" action="{{ url_for('invert_collection', collection_id=collection.id) }}" method="POST">
-        <button type="submit" class="btn-invert" style="padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; background-color: #805ad5;">
-            ⇄ Inverser  
+<!-- CARTES -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <h3 style="font-size: 1.05em; margin: 0;">Cartes ({{ cards|length }})</h3>
+    <form action="{{ url_for('invert_collection', collection_id=collection.id) }}" method="POST" style="margin: 0;">
+        <button type="submit" style="padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; background-color: #805ad5; color: white; border: none; font-size: 0.8em;">
+            ⇄ Inverser
         </button>
     </form>
-
 </div>
 
 {% if not cards %}
-    <div style="background: #1a202c; border: 1px solid #2d3748; padding: 25px; border-radius: 20px; text-align: center;">
-        <p style="color: #a0aec0; font-style: italic; margin: 0;">Aucune carte dans cette collection.</p>
+    <div style="background: #1a202c; border: 1px solid #2d3748; padding: 20px; border-radius: 12px; text-align: center;">
+        <p style="color: #a0aec0; font-style: italic; margin: 0; font-size: 0.9em;">Aucune carte dans cette collection.</p>
     </div>
 {% else %}
-
-
-
-
-<!-- Conteneur en Grille Responsive -->
-
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
         {% for card in cards %}
-            <!-- Carte format compact -->
-            <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 15px; border-radius: 16px; min-height: 120px; box-sizing: border-box;">
+            <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 12px; border-radius: 12px; min-height: 100px; box-sizing: border-box;">
                 
-                <!-- En-tête de la carte : Étoile à gauche, Croix à droite -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <!-- En-tête : Étoile à gauche / Crayon + Croix à droite -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                     <!-- Étoile Difficile Interactive -->
-                    {% if card.is_difficult == 1 %}
-                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.5em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
-                    {% else %}
-                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.5em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
-                    {% endif %}
-                            ★
-                        </button>
+{% if card.is_difficult == 1 %}
+    <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
+{% else %}
+    <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
+{% endif %}
+        ★
+    </button>
 
-                    <!-- Bouton de Suppression  -->
-                        <button type="button" onclick="deleteCardAsync('{{ card.id }}')" style="background: rgba(229, 62, 62, 0.2); border: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#e53e3e" stroke-width="2" stroke-linecap="round">
-                                <line x1="2" y1="2" x2="10" y2="10" />
-                                <line x1="10" y1="2" x2="2" y2="10" />
-                            </svg>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <!-- Bouton Crayon (Éditer) -->
+                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 0; font-size:100%;" title="Éditer">
+                            🖉 
                         </button>
+                        <!-- Bouton Suppression -->
+                        <button type="button" onclick="deleteCardAsync('{{ card.id }}')" style="background: rgba(229, 62, 62, 0.2); border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Supprimer">
+                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#e53e3e" stroke-width="2"><line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" /></svg>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Contenu Recto / Verso -->
-                <div style="text-align: left; word-break: break-word;">
-                    <div style="color: #ffffff; font-weight: 600; font-size: 1em; margin-bottom: 6px;">{{ card.question }}</div>
-                    <div style="color: #a0aec0; font-size: 0.85em; font-style: italic;">{{ card.answer }}</div>
+                <!-- Mode Affichage -->
+                <div id="card-view-{{ card.id }}" style="text-align: left; word-break: break-word;">
+                    <div id="q-text-{{ card.id }}" style="color: #ffffff; font-weight: 600; font-size: 0.9em; margin-bottom: 4px;">{{ card.question }}</div>
+                    <div id="a-text-{{ card.id }}" style="color: #a0aec0; font-size: 0.8em; font-style: italic;">{{ card.answer }}</div>
+                </div>
+
+                <!-- Mode Édition Directe (Caché au départ) -->
+                <div id="card-edit-{{ card.id }}" style="display: none; flex-direction: column; gap: 6px;">
+                    <input type="text" id="edit-q-{{ card.id }}" value="{{ card.question }}" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;">
+                    <input type="text" id="edit-a-{{ card.id }}" value="{{ card.answer }}" style="background: #1a202c; color: #a0aec0; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.8em; width: 100%; box-sizing: border-box;">
+                    <div style="display: flex; gap: 6px; margin-top: 2px;">
+                        <button type="button" onclick="saveCardEdit('{{ card.id }}')" style="background: #38a169; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75em; cursor: pointer; flex: 1;">OK</button>
+                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: #718096; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75em; cursor: pointer;">✕</button>
+                    </div>
                 </div>
 
             </div>
@@ -93,43 +112,59 @@
     </div>
 {% endif %}
 
-
 <script>
+// Activer / Désactiver l'édition en place
+function toggleEditCard(cardId) {
+    const viewDiv = document.getElementById('card-view-' + cardId);
+    const editDiv = document.getElementById('card-edit-' + cardId);
+    
+    if (editDiv.style.display === 'none') {
+        viewDiv.style.display = 'none';
+        editDiv.style.display = 'flex';
+    } else {
+        viewDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+    }
+}
+
+// Sauvegarder la modification sans recharger
+function saveCardEdit(cardId) {
+    const newQ = document.getElementById('edit-q-' + cardId).value;
+    const newA = document.getElementById('edit-a-' + cardId).value;
+
+    fetch(`/card/${cardId}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: newQ, answer: newA })
+    }).then(res => res.json()).then(data => {
+        if (data.status === 'ok') {
+            document.getElementById('q-text-' + cardId).innerText = newQ;
+            document.getElementById('a-text-' + cardId).innerText = newA;
+            toggleEditCard(cardId);
+        }
+    });
+}
+
 function toggleDifficultAsync(cardId, buttonElement) {
-    // Crée les données à envoyer
     let formData = new FormData();
     formData.append('action', 'toggle_difficult');
     formData.append('card_id', cardId);
 
-    // Envoie la requête en tâche de fond à Flask
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    }).then(response => {
+    fetch(window.location.href, { method: 'POST', body: formData }).then(response => {
         if (response.ok) {
-            // Change la couleur de l'étoile instantanément sans recharger !
-            if (buttonElement.style.color === 'rgb(246, 173, 85)') { // #f6ad55
-                buttonElement.style.color = '#718096';
-            } else {
-                buttonElement.style.color = '#f6ad55';
-            }
+            buttonElement.style.color = (buttonElement.style.color === 'rgb(246, 173, 85)') ? '#718096' : '#f6ad55';
         }
     });
 }
 
 function deleteCardAsync(cardId) {
-    if (!confirm('Supprimer cette carte définitivement ?')) return;
-
+    if (!confirm('Supprimer cette carte ?')) return;
     let formData = new FormData();
     formData.append('action', 'delete_card');
     formData.append('card_id', cardId);
 
-    fetch(window.location.href, {
-        method: 'POST',
-        body: formData
-    }).then(response => {
+    fetch(window.location.href, { method: 'POST', body: formData }).then(response => {
         if (response.ok) {
-            // Fait disparaître la ligne de la carte en douceur
             let row = document.getElementById('card-row-' + cardId);
             if (row) row.remove();
         }

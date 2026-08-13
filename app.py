@@ -126,22 +126,23 @@ def get_category_full_path(category_id, user_id):
 
 
 @app.route('/')
-@login_required 
+@login_required
 def index():
     user_id = current_user.id
-    
+
     # 1. Construction récursive de l'arborescence
     root_categories = get_root_categories_by_user(user_id)
     tree = []
     for cat in root_categories:
         cat_dict = dict(cat)
-        cat_dict['collections'] = get_collections_by_category(cat['id'])
+        cat_dict['collections'] = [dict(c) for c in get_collections_by_category(cat['id'])]
         cat_dict['subcategories'] = build_category_tree(cat['id'], user_id)
         tree.append(cat_dict)
 
-    # 2. Collections orphelines
-    root_collections = get_root_collections_by_user(user_id)
-    
+    # 2. Collections orphelines (converties en dictionnaires pour y ajouter 'stats')
+    raw_root_cols = get_root_collections_by_user(user_id)
+    root_collections = [dict(c) for c in raw_root_cols]
+
     # 3. Récupère TOUTES les catégories et calcule leur chemin d'accès complet pour le <select>
     raw_categories = get_categories_by_user(user_id)
     formatted_categories = []
@@ -150,22 +151,48 @@ def index():
             'id': cat['id'],
             'full_path': get_category_full_path(cat['id'], user_id)
         })
-    
+
     # On trie la liste par ordre alphabétique des chemins
     formatted_categories.sort(key=lambda x: x['full_path'])
 
     with db.get_db_connection() as conn:
         all_user_collections = conn.execute(
-            "SELECT id, name FROM collections WHERE user_id = ?", 
+            "SELECT id, name FROM collections WHERE user_id = ?",
             (current_user.id,)
         ).fetchall()
 
+    # --- INJECTION DES STATS (AJOUT ICI) ---
+    
+    # A. Stats pour les collections orphelines
+    for col in root_collections:
+        col['stats'] = get_collection_stats(col['id'])
+
+    # B. Stats récursives pour les dossiers et leurs collections
+    def attach_stats_to_tree(categories):
+        for cat in categories:
+            cat['stats'] = get_category_stats(cat['id'])
+            
+            # Convertit chaque collection en vrai dict si c'est un sqlite3.Row
+            new_collections = []
+            for col in cat.get('collections', []):
+                col_dict = dict(col)
+                col_dict['stats'] = get_collection_stats(col_dict['id'])
+                new_collections.append(col_dict)
+            cat['collections'] = new_collections
+            
+            if cat.get('subcategories'):
+                attach_stats_to_tree(cat['subcategories'])
+
+    attach_stats_to_tree(tree)
+
+    # --- FIN INJECTION ---
+
     return render_template(
-        'index.html', 
-        tree=tree, 
+        'index.html',
+        tree=tree,
         root_collections=root_collections,
         all_categories=formatted_categories,
-        all_user_collections=all_user_collections # Passé au template
+        all_user_collections=all_user_collections
     )
 # Route pour créer une catégorie ou sous-catégorie
 @app.route('/create_category', methods=['POST'])
@@ -235,7 +262,8 @@ def view_collection(collection_id):
             return redirect(url_for('view_collection', collection_id=collection_id))
 
     cards = db.get_cards_by_collection(collection_id)
-    return render_template('collection.html', collection=collection, cards=cards)
+    stats = get_collection_stats(collection_id)
+    return render_template('collection.html', collection=collection, cards=cards, stats = stats)
 
 
 @app.route('/collection/<int:collection_id>/review/<mode>')
@@ -412,6 +440,64 @@ def handle_merge_collections(collection_id):
         flash("Veuillez remplir tous les champs pour la fusion.", "warning")
         
     return redirect(url_for('index'))
+
+#------ STATS DES ELEMENTS --------
+
+def get_collection_stats(collection_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN is_known = 1 THEN 1 ELSE 0 END) as known FROM cards WHERE collection_id = ?', (collection_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    total = row['total'] if row else 0
+    known = row['known'] if row and row['known'] else 0
+    percent = round((known / total) * 100) if total > 0 else 0
+    
+    return {'known': known, 'total': total, 'percent': percent}
+
+def get_category_stats(category_id):
+    # Récupère toutes les cartes de cette catégorie ET ses sous-catégories
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Requête récursive (ou récupération de tous les enfants)
+    # Exemple simplifié SQL :
+    cursor.execute('''
+        WITH RECURSIVE SubCats AS (
+            SELECT id FROM categories WHERE id = ?
+            UNION ALL
+            SELECT c.id FROM categories c JOIN SubCats s ON c.parent_id = s.id
+        )
+        SELECT COUNT(cards.id) as total, SUM(CASE WHEN cards.is_known = 1 THEN 1 ELSE 0 END) as known 
+        FROM cards 
+        JOIN collections ON cards.collection_id = collections.id
+        WHERE collections.category_id IN (SELECT id FROM SubCats)
+    ''', (category_id,))
+    
+    row = cursor.fetchone()
+    conn.close()
+    
+    total = row['total'] if row and row['total'] else 0
+    known = row['known'] if row and row['known'] else 0
+    percent = round((known / total) * 100) if total > 0 else 0
+    
+    return {'total': total, 'known': known, 'percent': percent}
+
+# Nouvelle route pour éditer une carte en Ajax
+@app.route('/card/<int:card_id>/edit', methods=['POST'])
+def edit_card_route(card_id):
+    data = request.get_json()
+    question = data.get('question')
+    answer = data.get('answer')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE cards SET question = ?, answer = ? WHERE id = ?', (question, answer, card_id))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'status': 'ok'})
 
 if __name__ == '__main__':
     app.run(debug=True)
