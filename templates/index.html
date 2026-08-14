@@ -232,10 +232,10 @@
             <p id="mergeSourceText" style="color: #cbd5e0; font-size: 0.9em;"></p>
             
             <label style="font-size: 0.85em; color: #a0aec0;">Choisir la seconde collection :</label>
-            <select name="target_collection_id" required style="width: 100%; padding: 8px; margin: 5px 0 15px 0; border-radius: 4px; background: #1a202c; color: white; border: 1px solid #4a5568;">
-                <option value="" disabled selected>-- Sélectionner une collection --</option>
-                {% for col in all_user_collections %}
-                    <option value="{{ col.id }}">{{ col.name }}</option>
+            <select name="category_id" style="width: 100%; padding: 8px; margin-bottom: 15px; border-radius: 4px; background: #1a202c; color: white; border: 1px solid #4a5568;">
+                <option value="">-- Placer à la racine --</option>
+                {% for c in all_categories %}
+                    <option value="{{ c.id }}">{{ c.full_path }}</option>
                 {% endfor %}
             </select>
 

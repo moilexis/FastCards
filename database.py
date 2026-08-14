@@ -332,6 +332,8 @@ def merge_collections(user_id, source_col_id_1, source_col_id_2, new_name):
         conn.commit()
         return new_col_id
 
+
+
 def invert_cards_in_collection(collection_id):
     conn = get_db_connection() # Remplace par ta fonction de connexion
     cursor = conn.cursor()

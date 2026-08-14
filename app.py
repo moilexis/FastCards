@@ -105,7 +105,7 @@ def build_category_tree(category_id, user_id):
     return sub_tree
 
 def get_category_full_path(category_id, user_id):
-    """Reconstruit le chemin complet d'une catégorie (ex: Allemand > situer dans le temps > verbes)."""
+    """Reconstruit le chemin complet d'une catégorie (ex: Allemand / situer dans le temps / verbes)."""
     path = []
     current_id = category_id
     
