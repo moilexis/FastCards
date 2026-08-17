@@ -3,7 +3,11 @@
 {% block content %}
 <style>
     /* STYLES DE DROPDOWN */
-    .dropdown { position: relative; display: inline-block; }
+    .dropdown { 
+        position: relative; 
+        display: inline-block; 
+    }
+
     .dropdown-content {
         display: none; 
         position: absolute; 
@@ -12,7 +16,7 @@
         background-color: #1a202c; 
         min-width: 140px; 
         box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.6); 
-        z-index: 9999; 
+        z-index: 10000;
         border-radius: 6px; 
         border: 1px solid #4a5568;
         overflow: hidden;
@@ -85,18 +89,16 @@
 
 <!-- MACRO COLLECTION AVEC RATIO -->
 {% macro render_collection_card(col) %}
-    <div style="background: #2d3748; border: 1px solid #805ad5; padding: 6px 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; min-width: 0;">
+    <div style="background: #2d3748; border: 1px solid #805ad5; padding: 6px 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; min-width: 0; position: relative;">
         <a href="{{ url_for('view_collection', collection_id=col.id) }}" style="color: #ebf8ff; text-decoration: none; font-size: 0.88em; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 6px;">
             &#8226; {{ col.name }}
         </a>
 
         <div style="display: flex; align-items: center; gap: 8px;">
-            <!-- Badge Ratio compact (ex: 34/62) -->
             <span style="font-size: 0.75em; font-weight: bold; padding: 2px 6px; border-radius: 10px; background: rgba(128, 90, 213, 0.2); color: #d6bcfa; white-space: nowrap;">
                 {{ col.stats.known if col.stats else 0 }}/{{ col.stats.total if col.stats else 0 }}
             </span>
             
-            <!-- Menu 3 points -->
             <div class="dropdown">
                 <button onclick="toggleDropdown('drop-{{ col.id }}')" style="background: none; border: none; color: #a0aec0; font-size: 1.1em; cursor: pointer; padding: 0 2px;">⋮</button>
                 <div id="drop-{{ col.id }}" class="dropdown-content">
@@ -111,10 +113,10 @@
     </div>
 {% endmacro %}
 
-<!-- MACRO DOSSIER ENFANT AVEC POURCENTAGE (HOMOGÈNE) -->
+<!-- MACRO DOSSIER ENFANT (SOUS-DOSSIER FLUIDE SANS DOUBLE CADRE) -->
 {% macro render_category(cat) %}
-<details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 8px; margin-top: 6px; overflow: hidden;">
-    <summary style="padding: 8px 10px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 0.9em; display: flex; align-items: center; justify-content: space-between;">
+<details style="margin-top: 6px; border-left: 2px solid #4a5568; padding-left: 8px;">
+    <summary style="padding: 6px 8px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 0.9em; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border-radius: 6px;">
         <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📁 {{ cat.name }}</span>
         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;" onclick="event.stopPropagation();">
             {% if cat.stats and cat.stats.total > 0 %}
@@ -135,7 +137,7 @@
         </div>
     </summary>
     
-    <div style="padding: 8px 10px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 6px;">
+    <div style="padding: 6px 0; display: flex; flex-direction: column; gap: 6px;">
         {% if cat.collections %}
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px;">
                 {% for col in cat.collections %}
@@ -155,7 +157,7 @@
 <h2 style="color: #fff; margin-bottom: 15px;">Mon espace</h2>
 <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; box-sizing: border-box;">
     {% for cat in tree %}
-    <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; overflow: hidden;">
+    <details style="background: #2d3748; border: 1px solid #4a5568; border-radius: 12px;">
         <summary style="padding: 12px 15px; font-weight: bold; font-size: 1.1em; cursor: pointer; color: #ffeebc; display: flex; align-items: center; justify-content: space-between;">
             <span>📂 {{ cat.name }}</span>
             <div style="display: flex; align-items: center; gap: 10px;" onclick="event.stopPropagation();">
@@ -176,7 +178,7 @@
             </div>
         </summary>
 
-        <div style="padding: 8px 10px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 6px;">
+        <div style="padding: 10px 12px; background: #1a202c; border-top: 1px solid #4a5568; display: flex; flex-direction: column; gap: 6px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;">
             {% if cat.collections %}
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px;">
                     {% for col in cat.collections %}
