@@ -41,6 +41,15 @@
         width: 100% !important;
         box-sizing: border-box !important;
     }
+    /* Bordure jaune sur le dossier principal quand il est ouvert */
+    details[open] {
+        border-color: #ffeebc !important;
+    }
+
+    /* Bordure jaune sur l'encoche à gauche du sous-dossier quand il est ouvert */
+    details[open] > summary {
+        border-color:  #ffeebc;
+    }
 
     /* RÈGLE RESPONSIVE MOBILES */
     @media (max-width: 768px) {

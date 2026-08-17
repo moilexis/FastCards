@@ -53,16 +53,20 @@ document.addEventListener("DOMContentLoaded", function() {
     fetch('/collection/{{ collection.id }}/data')
         .then(res => res.json())
         .then(data => {
-            cards = data.cards;
+            // 1. Filtrer pour exclure les cartes déjà sues/validées
+            let unmasteredCards = data.cards.filter(card => card.is_known !== 1);
+            
+            // 2. Mélanger l'ordre des cartes (Algorithme Fisher-Yates)
+            cards = unmasteredCards.sort(() => Math.random() - 0.5);
+
             if (cards.length > 0) {
                 renderCard();
             } else {
-                document.getElementById('recto-text').innerText = "Aucune carte à réviser !";
+                document.getElementById('recto-text').innerText = "Toutes les cartes sont validées ! 🎉";
                 document.getElementById('hint').style.display = 'none';
             }
         });
 });
-
 // Affiche la carte actuelle sans recharger la page
 function renderCard() {
     if (currentIndex >= cards.length) {
