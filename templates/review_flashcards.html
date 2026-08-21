@@ -5,12 +5,12 @@
     <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #a0aec0;">
         <span>Progression : <strong id="progress-text">1 / {{ progress[1]|default(1) }}</strong></span>
-        <a href="{{ url_for('view_collection', collection_id=collection.id) }}" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
+        <a href="{{ url_for('view_collection', collection_id=collection.id) }}" onclick="saveSessionData()" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
     </div>
 
     <h2 style="margin-bottom: 25px;">COLLECTION - {{collection.name}}</h2>
 
-    <!-- CONTAINER GRANDE CARTE (TON DESIGN BLANC EXACT) -->
+    <!-- CONTAINER GRANDE CARTE -->
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
     display: flex; flex-direction: column; justify-content: center; position: relative; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 40px; margin-left: 10px; margin-right: 10px;">
@@ -48,15 +48,18 @@
 let cards = [];
 let currentIndex = 0;
 
+// MESURE DES STATISTIQUES DE SESSION
+const startTime = Date.now();
+let cardsViewed = 0;
+let cardsSuccess = 0;
+let sessionSaved = false;
+
 // Chargement automatique au démarrage
 document.addEventListener("DOMContentLoaded", function() {
     fetch('/collection/{{ collection.id }}/data')
         .then(res => res.json())
         .then(data => {
-            // 1. Filtrer pour exclure les cartes déjà sues/validées
             let unmasteredCards = data.cards.filter(card => card.is_known !== 1);
-            
-            // 2. Mélanger l'ordre des cartes (Algorithme Fisher-Yates)
             cards = unmasteredCards.sort(() => Math.random() - 0.5);
 
             if (cards.length > 0) {
@@ -67,9 +70,11 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
 });
-// Affiche la carte actuelle sans recharger la page
+
+// Affiche la carte actuelle
 function renderCard() {
     if (currentIndex >= cards.length) {
+        saveSessionData();
         alert("Session de révision terminée ! 🎉");
         window.location.href = "{{ url_for('view_collection', collection_id=collection.id) }}";
         return;
@@ -77,19 +82,14 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Contenu texte
     document.getElementById("recto-text").innerText = card.question;
     document.getElementById("verso-text").innerText = card.answer;
-    
-    // Reset l'état de la carte (cachée par défaut)
     document.getElementById("verso-text").style.display = "none";
     document.getElementById("hint").style.display = "block";
     
-    // Mise à jour de l'étoile (Jaune si difficile, gris sinon)
     const starBtn = document.getElementById("star-btn");
     starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
     
-    // Progression
     document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
 }
 
@@ -106,34 +106,55 @@ function toggleAnswer() {
     }
 }
 
-// Basculer l'état difficile (Étoile) sans recharger
+// Basculer l'état difficile (Étoile)
 function toggleDifficult() {
     const card = cards[currentIndex];
     card.is_difficult = card.is_difficult === 1 ? 0 : 1;
-    
-    // Changement visuel immédiat
     document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
 
-    // Envoi à la BDD en arrière-plan
     fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
 }
 
-// Enregistrer la réponse (0 = Je sais pas, 1 = Je sais) et passer à la carte suivante
+// Enregistrer la réponse
 function submitAnswer(knows) {
     if (cards.length === 0) return;
     
+    // Incrementer les compteurs de session
+    cardsViewed++;
+    if (knows === 1) cardsSuccess++;
+
     const card = cards[currentIndex];
     
-    // Sauvegarde en BDD silencieuse
     fetch(`/card/${card.id}/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ knows: knows })
     });
 
-    // Passer à la carte suivante INSTANTANÉMENT
     currentIndex++;
     renderCard();
 }
+
+// Envoi asynchrone des données de session en BDD
+function saveSessionData() {
+    if (sessionSaved) return;
+    
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    if (cardsViewed === 0 || durationSeconds < 2) return;
+
+    const payload = JSON.stringify({
+    collection_id: parseInt("{{ collection.id }}"),
+    mode: "flashcard_normal",
+    duration_seconds: durationSeconds,
+    cards_viewed: cardsViewed,
+    cards_success: cardsSuccess
+});
+
+    navigator.sendBeacon('/api/study_session', payload);
+    sessionSaved = true;
+}
+
+// Sauvegarde automatique lors du changement ou de la fermeture de page
+window.addEventListener('beforeunload', saveSessionData);
 </script>
 {% endblock %}

@@ -1,9 +1,10 @@
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash,jsonify
+import json
+import random
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 import database as db
-import random
 from database import (
     get_root_categories_by_user,
     get_subcategories,
@@ -18,19 +19,17 @@ from database import (
     merge_collections,
     invert_cards_in_collection,
     get_db_connection
-    )
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'cle_dev_temp_12345')
 
-# Configuration de Flask-Login
 login_manager = LoginManager()
-login_manager.login_view = 'login'  # Redirection si accès non autorisé
+login_manager.login_view = 'login'
 login_manager.init_app(app)
-# Initialisation de la BDD au démarrage
+
 db.init_db()
 
-# Classe Utilisateur requise par Flask-Login
 class User(UserMixin):
     def __init__(self, user_row):
         self.id = user_row['id']
@@ -84,28 +83,25 @@ def login():
     return render_template('login.html')
 
 @app.route('/logout')
-
 def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- LOGIQUE DE L'ARBORESCENCE (SÉCURISÉE) ---
+# --- LOGIQUE DE L'ARBORESCENCE ---
+
 def build_category_tree(category_id, user_id):
-    """Fonction récursive qui construit l'arbre complet des sous-catégories et leurs collections."""
     sub_cats = get_subcategories(category_id, user_id)
     sub_tree = []
     
     for sub in sub_cats:
         sub_dict = dict(sub)
         sub_dict['collections'] = get_collections_by_category(sub['id'])
-        # Appel récursif pour aller chercher les enfants du sous-dossier (niveau 3, 4, etc.)
         sub_dict['subcategories'] = build_category_tree(sub['id'], user_id)
         sub_tree.append(sub_dict)
         
     return sub_tree
 
 def get_category_full_path(category_id, user_id):
-    """Reconstruit le chemin complet d'une catégorie (ex: Allemand / situer dans le temps / verbes)."""
     path = []
     current_id = category_id
     
@@ -119,18 +115,16 @@ def get_category_full_path(category_id, user_id):
             if not cat:
                 break
                 
-            path.insert(0, cat['name'])  # Ajoute au début pour garder l'ordre hiérarchique
+            path.insert(0, cat['name'])
             current_id = cat['parent_id']
             
     return " / ".join(path)
-
 
 @app.route('/')
 @login_required
 def index():
     user_id = current_user.id
 
-    # 1. Construction récursive de l'arborescence
     root_categories = get_root_categories_by_user(user_id)
     tree = []
     for cat in root_categories:
@@ -139,11 +133,9 @@ def index():
         cat_dict['subcategories'] = build_category_tree(cat['id'], user_id)
         tree.append(cat_dict)
 
-    # 2. Collections orphelines (converties en dictionnaires pour y ajouter 'stats')
     raw_root_cols = get_root_collections_by_user(user_id)
     root_collections = [dict(c) for c in raw_root_cols]
 
-    # 3. Récupère TOUTES les catégories et calcule leur chemin d'accès complet pour le <select>
     raw_categories = get_categories_by_user(user_id)
     formatted_categories = []
     for cat in raw_categories:
@@ -152,7 +144,6 @@ def index():
             'full_path': get_category_full_path(cat['id'], user_id)
         })
 
-    # On trie la liste par ordre alphabétique des chemins
     formatted_categories.sort(key=lambda x: x['full_path'])
 
     with db.get_db_connection() as conn:
@@ -161,18 +152,13 @@ def index():
             (current_user.id,)
         ).fetchall()
 
-    # --- INJECTION DES STATS (AJOUT ICI) ---
-    
-    # A. Stats pour les collections orphelines
     for col in root_collections:
         col['stats'] = get_collection_stats(col['id'])
 
-    # B. Stats récursives pour les dossiers et leurs collections
     def attach_stats_to_tree(categories):
         for cat in categories:
             cat['stats'] = get_category_stats(cat['id'])
             
-            # Convertit chaque collection en vrai dict si c'est un sqlite3.Row
             new_collections = []
             for col in cat.get('collections', []):
                 col_dict = dict(col)
@@ -185,8 +171,6 @@ def index():
 
     attach_stats_to_tree(tree)
 
-    # --- FIN INJECTION ---
-
     return render_template(
         'index.html',
         tree=tree,
@@ -194,7 +178,7 @@ def index():
         all_categories=formatted_categories,
         all_user_collections=all_user_collections
     )
-# Route pour créer une catégorie ou sous-catégorie
+
 @app.route('/create_category', methods=['POST'])
 @login_required
 def handle_create_category():
@@ -202,7 +186,6 @@ def handle_create_category():
     name = request.form.get('name')
     parent_id = request.form.get('parent_id')
     
-    # name.strip() évite de créer un dossier avec juste des espaces "   "
     if name and name.strip():
         create_category(user_id, name, parent_id)
         
@@ -220,7 +203,6 @@ def create_collection_route():
         
     return redirect(url_for('index'))
 
-
 @app.route('/collection/<int:collection_id>', methods=['GET', 'POST'])
 @login_required
 def view_collection(collection_id):
@@ -232,7 +214,6 @@ def view_collection(collection_id):
     if request.method == 'POST':
         action = request.form.get('action')
         
-        # Action 1 : Importation de masse (Étape 3 optimisée)
         if action == 'bulk_import':
             raw_text = request.form.get('bulk_data')
             if raw_text:
@@ -245,16 +226,14 @@ def view_collection(collection_id):
                         if q and a: cards_to_insert.append((q, a))
                 if cards_to_insert:
                     db.insert_cards_bulk(collection_id, cards_to_insert)
-                    flash(f" {len(cards_to_insert)} cartes ajoutées !", "success")
+                    flash(f"{len(cards_to_insert)} cartes ajoutées !", "success")
             return redirect(url_for('view_collection', collection_id=collection_id))
             
-        # Action 2 : Toggle Difficile depuis la liste
         elif action == 'toggle_difficult':
             card_id = request.form.get('card_id')
             db.toggle_card_difficulty(int(card_id), current_user.id)
             return redirect(url_for('view_collection', collection_id=collection_id))
             
-        # Action 3 : Suppression d'une carte
         elif action == 'delete_card':
             card_id = request.form.get('card_id')
             db.delete_card(int(card_id), current_user.id)
@@ -263,8 +242,46 @@ def view_collection(collection_id):
 
     cards = db.get_cards_by_collection(collection_id)
     stats = get_collection_stats(collection_id)
-    return render_template('collection.html', collection=collection, cards=cards, stats = stats)
 
+    with db.get_db_connection() as conn:
+        with db.get_db_connection() as conn:
+            last_session = conn.execute('''
+                SELECT 
+                    strftime('%d/%m/%Y', created_at, 'localtime') AS date_formatted,
+                    strftime('%H:%M', created_at, 'localtime') AS time_formatted
+                FROM study_sessions 
+                WHERE collection_id = ? 
+                ORDER BY created_at DESC LIMIT 1
+            ''', (collection_id,)).fetchone()
+
+            last_reviewed_date = last_session['date_formatted'] if last_session else None
+            last_reviewed_time = last_session['time_formatted'] if last_session else None
+
+        user_row = conn.execute('SELECT favorite_modes FROM users WHERE id = ?', (current_user.id,)).fetchone()
+
+    user_favs = ['fc_not_validated', 'fc_difficult']
+    if user_row and user_row['favorite_modes']:
+        try:
+            user_favs = json.loads(user_row['favorite_modes'])
+        except Exception:
+            pass
+
+    return render_template(
+    'collection.html', 
+    collection=collection, 
+    cards=cards, 
+    stats=stats,
+    last_reviewed_date=last_reviewed_date,
+    last_reviewed_time=last_reviewed_time,
+    user_favs=user_favs
+    )
+
+@app.route('/collection/<int:collection_id>/reset', methods=['POST'])
+@login_required
+def reset_collection_progress(collection_id):
+    db.reset_collection_progress(collection_id)
+    flash("Progression réinitialisée avec succès.", "info")
+    return redirect(url_for('view_collection', collection_id=collection_id))
 
 @app.route('/collection/<int:collection_id>/review/<mode>')
 @login_required
@@ -273,29 +290,24 @@ def start_review(collection_id, mode):
     if not collection:
         return redirect(url_for('index'))
         
-    # Option : Réinitialisation globale requise par le mode "all_reset"
     if mode == 'all_reset':
         db.reset_collection_progress(collection_id)
         
-    # Filtrage selon le mode choisi
     all_cards = db.get_cards_by_collection(collection_id)
     if mode == 'difficult':
         cards_to_review = [c for c in all_cards if c['is_difficult'] == 1 and c['is_known'] == 0]
     elif mode == 'not_validated':
         cards_to_review = [c for c in all_cards if c['is_known'] == 0]
-    else: # mode 'all_reset'
+    else:
         cards_to_review = list(all_cards)
         
     if not cards_to_review:
         flash("Aucune carte à réviser dans ce mode !", "warning")
         return redirect(url_for('view_collection', collection_id=collection_id))
         
-    #  Mélange aléatoire total (différent à chaque session)
     cards_list = [dict(c) for c in cards_to_review]
     random.shuffle(cards_list)
     
-    # On stocke la liste des IDs mélangés dans la session de l'utilisateur
-    from flask import session
     session['review_cards'] = [c['id'] for c in cards_list]
     session['review_index'] = 0
     
@@ -303,13 +315,8 @@ def start_review(collection_id, mode):
 
 @app.route('/collection/<int:collection_id>/data')
 def get_collection_cards(collection_id):
-    conn = get_db_connection()  
-    cursor = conn.cursor()
-    
-    # Récupère toutes les cartes de cette collection
-    cursor.execute('SELECT id, question, answer, is_known, is_difficult FROM cards WHERE collection_id = ?', (collection_id,))
-    rows = cursor.fetchall()
-    conn.close()
+    with db.get_db_connection() as conn:
+        rows = conn.execute('SELECT id, question, answer, is_known, is_difficult FROM cards WHERE collection_id = ?', (collection_id,)).fetchall()
 
     cards_data = []
     for row in rows:
@@ -323,41 +330,31 @@ def get_collection_cards(collection_id):
 
     return jsonify({'cards': cards_data})
 
-# Route pour l'étoile ★ (Difficile)
 @app.route('/card/<int:card_id>/toggle_difficult', methods=['POST'])
 def toggle_card_difficult(card_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('UPDATE cards SET is_difficult = CASE WHEN is_difficult = 1 THEN 0 ELSE 1 END WHERE id = ?', (card_id,))
-    conn.commit()
-    conn.close()
+    with db.get_db_connection() as conn:
+        conn.execute('UPDATE cards SET is_difficult = CASE WHEN is_difficult = 1 THEN 0 ELSE 1 END WHERE id = ?', (card_id,))
+        conn.commit()
     return jsonify({'status': 'ok'})
 
-# Route pour Je sais / Je sais pas
 @app.route('/card/<int:card_id>/answer', methods=['POST'])
 def answer_card(card_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     knows = data.get('knows', 0)
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('UPDATE cards SET is_known = ? WHERE id = ?', (knows, card_id))
-    conn.commit()
-    conn.close()
+    with db.get_db_connection() as conn:
+        conn.execute('UPDATE cards SET is_known = ? WHERE id = ?', (knows, card_id))
+        conn.commit()
     return jsonify({'status': 'ok'})
 
 @app.route('/collection/<int:collection_id>/invert', methods=['POST'])
 def invert_collection(collection_id):
-    # Appelle la fonction d'inversion en BDD
     invert_cards_in_collection(collection_id)
-    
-    # Redirige immédiatement sur la page de la collection
     return redirect(url_for('view_collection', collection_id=collection_id))
 
 @app.route('/collection/<int:collection_id>/review/card', methods=['GET', 'POST'])
 @login_required
 def render_review_card(collection_id):
-    from flask import session
     collection = db.get_collection_details(collection_id, current_user.id)
     card_ids = session.get('review_cards', [])
     index = session.get('review_index', 0)
@@ -370,7 +367,7 @@ def render_review_card(collection_id):
     current_card_id = card_ids[index]
     
     if request.method == 'POST':
-        user_knows = request.form.get('knows') # '1' ou '0'
+        user_knows = request.form.get('knows')
         action = request.form.get('action')
         
         if action == 'toggle_difficult_review':
@@ -382,13 +379,10 @@ def render_review_card(collection_id):
             session['review_index'] = index + 1
             return redirect(url_for('render_review_card', collection_id=collection_id))
 
-    # Récupération de la carte courante avec son statut frais
     with db.get_db_connection() as conn:
         card = conn.execute("SELECT * FROM cards WHERE id = ?", (current_card_id,)).fetchone()
         
-    return render_template('review.html', collection=collection, card=card, progress=(index+1, len(card_ids)))
-
-#suppression/deplacement/fusion
+    return render_template('review_flashcards.html', collection=collection, card=card, progress=(index+1, len(card_ids)))
 
 @app.route('/delete_category/<int:category_id>', methods=['POST'])
 @login_required
@@ -403,7 +397,6 @@ def handle_delete_category(category_id):
         
     return redirect(url_for('index'))
 
-
 @app.route('/delete_collection/<int:collection_id>', methods=['POST'])
 @login_required
 def handle_delete_collection(collection_id):
@@ -411,7 +404,6 @@ def handle_delete_collection(collection_id):
     delete_collection(collection_id, user_id)
     flash("Collection supprimée.", "success")
     return redirect(url_for('index'))
-
 
 @app.route('/move_collection/<int:collection_id>', methods=['POST'])
 @login_required
@@ -441,14 +433,11 @@ def handle_merge_collections(collection_id):
         
     return redirect(url_for('index'))
 
-#------ STATS DES ELEMENTS --------
+# --- STATS ---
 
 def get_collection_stats(collection_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) as total, SUM(CASE WHEN is_known = 1 THEN 1 ELSE 0 END) as known FROM cards WHERE collection_id = ?', (collection_id,))
-    row = cursor.fetchone()
-    conn.close()
+    with db.get_db_connection() as conn:
+        row = conn.execute('SELECT COUNT(*) as total, SUM(CASE WHEN is_known = 1 THEN 1 ELSE 0 END) as known FROM cards WHERE collection_id = ?', (collection_id,)).fetchone()
     
     total = row['total'] if row else 0
     known = row['known'] if row and row['known'] else 0
@@ -457,26 +446,18 @@ def get_collection_stats(collection_id):
     return {'known': known, 'total': total, 'percent': percent}
 
 def get_category_stats(category_id):
-    # Récupère toutes les cartes de cette catégorie ET ses sous-catégories
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Requête récursive (ou récupération de tous les enfants)
-    # Exemple simplifié SQL :
-    cursor.execute('''
-        WITH RECURSIVE SubCats AS (
-            SELECT id FROM categories WHERE id = ?
-            UNION ALL
-            SELECT c.id FROM categories c JOIN SubCats s ON c.parent_id = s.id
-        )
-        SELECT COUNT(cards.id) as total, SUM(CASE WHEN cards.is_known = 1 THEN 1 ELSE 0 END) as known 
-        FROM cards 
-        JOIN collections ON cards.collection_id = collections.id
-        WHERE collections.category_id IN (SELECT id FROM SubCats)
-    ''', (category_id,))
-    
-    row = cursor.fetchone()
-    conn.close()
+    with db.get_db_connection() as conn:
+        row = conn.execute('''
+            WITH RECURSIVE SubCats AS (
+                SELECT id FROM categories WHERE id = ?
+                UNION ALL
+                SELECT c.id FROM categories c JOIN SubCats s ON c.parent_id = s.id
+            )
+            SELECT COUNT(cards.id) as total, SUM(CASE WHEN cards.is_known = 1 THEN 1 ELSE 0 END) as known 
+            FROM cards 
+            JOIN collections ON cards.collection_id = collections.id
+            WHERE collections.category_id IN (SELECT id FROM SubCats)
+        ''', (category_id,)).fetchone()
     
     total = row['total'] if row and row['total'] else 0
     known = row['known'] if row and row['known'] else 0
@@ -484,20 +465,69 @@ def get_category_stats(category_id):
     
     return {'total': total, 'known': known, 'percent': percent}
 
-# Nouvelle route pour éditer une carte en Ajax
 @app.route('/card/<int:card_id>/edit', methods=['POST'])
 def edit_card_route(card_id):
-    data = request.get_json()
+    data = request.get_json() or {}
     question = data.get('question')
     answer = data.get('answer')
     
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('UPDATE cards SET question = ?, answer = ? WHERE id = ?', (question, answer, card_id))
-    conn.commit()
-    conn.close()
+    with db.get_db_connection() as conn:
+        conn.execute('UPDATE cards SET question = ?, answer = ? WHERE id = ?', (question, answer, card_id))
+        conn.commit()
     
     return jsonify({'status': 'ok'})
+
+@app.route('/api/study_session', methods=['POST'])
+@login_required
+def save_study_session():
+    data = request.get_json(force=True)
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data provided'}), 400
+
+    collection_id = data.get('collection_id')
+    mode = data.get('mode')
+    duration = data.get('duration_seconds', 0)
+    cards_viewed = data.get('cards_viewed', 0)
+    cards_success = data.get('cards_success', 0)
+
+    with db.get_db_connection() as conn:
+        conn.execute('''
+            INSERT INTO study_sessions (user_id, collection_id, mode, duration_seconds, cards_viewed, cards_success, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, DATETIME('now'))
+        ''', (current_user.id, collection_id, mode, duration, cards_viewed, cards_success))
+        conn.commit()
+
+    return jsonify({'status': 'success'}), 200
+
+@app.route('/api/user/favorites', methods=['POST'])
+@login_required
+def update_user_favorites():
+    data = request.get_json() or {}
+    favorites = data.get('favorites', [])
+    
+    if len(favorites) > 3:
+        favorites = favorites[:3]
+
+    favs_json = json.dumps(favorites)
+
+    with db.get_db_connection() as conn:
+        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (favs_json, current_user.id))
+        conn.commit()
+
+    return jsonify({'status': 'ok'}), 200
+
+# ROUTE DEBUG / RESET
+@app.route('/reset_my_favorites')
+@login_required
+def reset_my_favorites():
+    default_favs = json.dumps(['fc_not_validated', 'fc_difficult'])
+    
+    with db.get_db_connection() as conn:
+        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (default_favs, current_user.id))
+        conn.commit()
+    
+    flash("Favoris réinitialisés avec succès !", "success")
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)

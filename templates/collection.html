@@ -1,41 +1,189 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
-    <div>
-        <h2 style="margin: 0; font-size: 1.5em;">{{ collection.name }}</h2>
-        <p style="color: #a0aec0; margin: 4px 0 0 0; font-size: 0.85em;">
-            Catégorie : <strong style="color: #ffeebc;">{{ collection.category_name if collection.category_name else "Aucune" }}</strong>
-        </p>
-    </div>
+<style>
+    /* HUB DE RÉVISION SANS CONTENEUR GRIS */
+    .revision-hub {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin-bottom: 30px;
+    }
 
-    <!-- RATIO & PROGRESSION HARMONIEUSE -->
-    <div style="background: #2d3748; padding: 8px 14px; border-radius: 12px; border: 1px solid #4a5568; min-width: 140px; text-align: center;">
-        <h3 style="font-size: 1em; font-weight: bold; color: #a0aec0; margin-bottom: 3px;">Progression</h3>
-        <div style="font-size: 1.1em; font-weight: bold; color: #68d391;">
-            {{ stats.known|default(0) }} <span style="color: #718096; font-weight: normal; font-size: 0.85em;">/ {{ stats.total|default(cards|length) }}</span>
+    .hub-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        gap: 12px;
+    }
+
+    .stats-badge-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .stats-badge {
+        background: #1a202c;
+        border: 1px solid #4a5568;
+        padding: 8px 14px;
+        border-radius: 12px;
+        text-align: center;
+        min-width: 120px;
+    }
+
+    .btn-reset {
+        background: rgba(229, 62, 62, 0.2);
+        color: #feb2b2;
+        border: 1px solid #e53e3e;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 0.8em;
+        transition: background 0.2s;
+    }
+    .btn-reset:hover { background: rgba(229, 62, 62, 0.4); }
+
+    .modes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .mode-card {
+        background: #1a202c;
+        border: 1px solid #4a5568;
+        border-radius: 10px;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-decoration: none;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.9em;
+        overflow: hidden;
+    }
+    .mode-card a {
+        color: inherit;
+        text-decoration: none;
+        flex: 1;
+        background: transparent !important;
+        margin: 0;
+        padding: 0;
+    }
+
+    .fav-heart {
+        background: none;
+        border: none;
+        font-size: 1.1em;
+        cursor: pointer;
+        opacity: 0.3;
+        filter: grayscale(100%);
+        transition: all 0.2s;
+        padding: 0;
+    }
+    .fav-heart.active {
+        opacity: 1;
+        filter: grayscale(0%);
+        color: #e53e3e;
+    }
+
+    .toggle-divider {
+        display: flex;
+        align-items: center;
+        text-align: center;
+        margin-top: 20px;
+        color: #a0aec0;
+        font-size: 0.8em;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .toggle-divider::before, .toggle-divider::after {
+        content: '';
+        flex: 1;
+        border-bottom: 1px solid #4a5568;
+    }
+    .toggle-divider span { padding: 0 10px; }
+
+    .time-part { display: inline; }
+    @media (max-width: 600px) {
+        .time-part { display: none; }
+    }
+</style>
+
+<div class="revision-hub">
+    <!-- EN-TÊTE & RESET -->
+    <div class="hub-header">
+        <div>
+            <h2 style="margin: 0; font-size: 1.6em;">{{ collection.name }}</h2>
+            <p style="color: #a0aec0; margin: 4px 0 0 0; font-size: 0.85em;">
+                Catégorie : <strong style="color: #ffeebc;">{{ collection.category_name if collection.category_name else "Aucune" }}</strong>
+            </p>
+        </div>
+
+        <div class="stats-badge-group">
+            <div class="stats-badge">
+                <span style="font-size: 0.75em; color: #a0aec0; display: block; text-transform: uppercase;">PROGRESSION</span>
+                <strong style="font-size: 1.1em; color: #68d391;">{{ stats.known|default(0) }} <span style="color: #718096; font-size: 0.85em;">/ {{ stats.total|default(cards|length) }}</span></strong>
+            </div>
+
         </div>
     </div>
+
+    <!-- HORODATAGE DE DERNIÈRE RÉVISION -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="font-size: 1.05em; margin: 0;">Réviser</h3>
+        <span style="color: #a0aec0; font-size: 0.85em;">
+            {% if last_reviewed_date %}
+                Dernière fois le : <strong>{{ last_reviewed_date }}</strong> <span class="time-part">à {{ last_reviewed_time }}</span>
+            {% else %}
+                <em>Jamais révisé</em>
+            {% endif %}
+        </span>
+        <form action="{{ url_for('reset_collection_progress', collection_id=collection.id) }}" method="POST" onsubmit="return confirm('Réinitialiser la progression de cette collection ?');" style="margin:0;">
+                <button type="submit" class="btn-reset">RESET</button>
+            </form>
+    </div>
+
+    <!-- FAVORIS SÉLECTIONNÉS (MAX 3) -->
+    <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Favoris</span>
+    <div id="favorites-container" class="modes-grid"></div>
+
+    <!-- TOUS LES MODES DE RÉVISION -->
+    <div id="all-modes-container" style="display: none; margin-top: 15px;">
+        <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase;">Flashcards</span>
+        <div class="modes-grid">
+            <div class="mode-card" style="background-color: #38a169; border-color: #2f855a;">
+                <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" style="color:inherit; text-decoration:none; flex:1;">Non-validées</a>
+                <button class="fav-heart" data-mode="fc_not_validated" onclick="toggleFav('fc_not_validated')">&#10084;</button>
+            </div>
+            <div class="mode-card" style="background-color: #dd6b20; border-color: #c05621;">
+                <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" style="color:inherit; text-decoration:none; flex:1;">Difficiles ★</a>
+                <button class="fav-heart" data-mode="fc_difficult" onclick="toggleFav('fc_difficult')">&#10084;</button>
+            </div>
+        </div>
+
+        <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Saisie Clavier</span>
+        <div class="modes-grid">
+            <div class="mode-card" style="background-color: #38a169; border-color: #2f855a;">
+                <a href="{{ url_for('start_review', collection_id=collection.id, mode='input_normal') }}" style="color:inherit; text-decoration:none; flex:1;">Écrire la réponse</a>
+                <button class="fav-heart" data-mode="input_normal" onclick="toggleFav('input_normal')">&#10084;</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toggle-divider" onclick="toggleDrawer()">
+        <span id="toggle-label">AFFICHER PLUS ▼</span>
+    </div>
 </div>
 
-<!-- OPTIONS DE RÉVISION COMPACTES SUR MOBILE -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin: 20px 0;">
-    <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" 
-       style="background: #3182ce; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
-        Non-validées
-    </a>
-    <a href="{{ url_for('start_review', collection_id=collection.id, mode='all_reset') }}" 
-       style="background: #38a169; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
-        Toutes (Reset)
-    </a>
-    <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" 
-       style="background: #dd6b20; color: white; padding: 12px 8px; border-radius: 8px; text-decoration: none; font-weight: bold; text-align: center; font-size: 0.85em;">
-        Difficiles ★
-    </a>
-</div>
-
-<!-- AJOUT EN MASSE (DISCRET ET REPLIABLE SUR MOBILE) -->
-<details style="background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; margin-bottom: 20px;">
+<!-- AJOUT EN MASSE -->
+ <h3 style="font-size: 1.05em; margin: 0;">Créér des cartes</h3>
+<details style="background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; margin-bottom: 20px; margin-top: 20px;">
     <summary style="padding: 10px 15px; color: #a0aec0; font-weight: bold; cursor: pointer; font-size: 0.9em;">
         + Ajouter des cartes en masse
     </summary>
@@ -67,36 +215,27 @@
         {% for card in cards %}
             <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 12px; border-radius: 12px; min-height: 100px; box-sizing: border-box;">
                 
-                <!-- En-tête : Étoile à gauche / Crayon + Croix à droite -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <!-- Étoile Difficile Interactive -->
-{% if card.is_difficult == 1 %}
-    <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
-{% else %}
-    <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
-{% endif %}
-        ★
-    </button>
-
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <!-- Bouton Crayon (Éditer) -->
-                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 0; font-size:100%;" title="Éditer">
-                            &#x1F527;
+                    {% if card.is_difficult == 1 %}
+                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
+                    {% else %}
+                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
+                    {% endif %}
+                            ★
                         </button>
-                        <!-- Bouton Suppression -->
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 0; font-size:100%;" title="Éditer">&#x1F527;</button>
                         <button type="button" onclick="deleteCardAsync('{{ card.id }}')" style="background: rgba(229, 62, 62, 0.2); border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Supprimer">
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#e53e3e" stroke-width="2"><line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" /></svg>
                         </button>
                     </div>
                 </div>
 
-                <!-- Mode Affichage -->
                 <div id="card-view-{{ card.id }}" style="text-align: left; word-break: break-word;">
                     <div id="q-text-{{ card.id }}" style="color: #ffffff; font-weight: 600; font-size: 0.9em; margin-bottom: 4px;">{{ card.question }}</div>
                     <div id="a-text-{{ card.id }}" style="color: #a0aec0; font-size: 0.8em; font-style: italic;">{{ card.answer }}</div>
                 </div>
 
-                <!-- Mode Édition Directe (Caché au départ) -->
                 <div id="card-edit-{{ card.id }}" style="display: none; flex-direction: column; gap: 6px;">
                     <input type="text" id="edit-q-{{ card.id }}" value="{{ card.question }}" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;">
                     <input type="text" id="edit-a-{{ card.id }}" value="{{ card.answer }}" style="background: #1a202c; color: #a0aec0; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.8em; width: 100%; box-sizing: border-box;">
@@ -112,7 +251,62 @@
 {% endif %}
 
 <script>
-// Activer / Désactiver l'édition en place
+let userFavorites = JSON.parse('{{ user_favs|default(["fc_not_validated", "fc_all", "fc_difficult"])|tojson }}');
+
+document.addEventListener("DOMContentLoaded", function() {
+    updateFavoritesUI();
+});
+
+function updateFavoritesUI() {
+    const favContainer = document.getElementById('favorites-container');
+    favContainer.innerHTML = '';
+
+    document.querySelectorAll('.fav-heart').forEach(btn => {
+        const mode = btn.getAttribute('data-mode');
+        btn.classList.toggle('active', userFavorites.includes(mode));
+    });
+
+    userFavorites.forEach(modeKey => {
+        const btn = document.querySelector(`.fav-heart[data-mode="${modeKey}"]`);
+        if (btn) {
+            const cardClone = btn.closest('.mode-card').cloneNode(true);
+            const cloneBtn = cardClone.querySelector('.fav-heart');
+            cloneBtn.onclick = () => toggleFav(modeKey);
+            favContainer.appendChild(cardClone);
+        }
+    });
+}
+
+function toggleFav(modeKey) {
+    const index = userFavorites.indexOf(modeKey);
+    if (index > -1) {
+        userFavorites.splice(index, 1);
+    } else {
+        if (userFavorites.length >= 3) {
+            alert("Vous ne pouvez garder que 3 favoris maximum.");
+            return;
+        }
+        userFavorites.push(modeKey);
+    }
+
+    fetch('/api/user/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorites: userFavorites })
+    });
+
+    updateFavoritesUI();
+}
+
+function toggleDrawer() {
+    const container = document.getElementById('all-modes-container');
+    const label = document.getElementById('toggle-label');
+    const isHidden = container.style.display === 'none';
+
+    container.style.display = isHidden ? 'block' : 'none';
+    label.innerText = isHidden ? 'RÉDUIRE ▲' : 'AFFICHER PLUS ▼';
+}
+
 function toggleEditCard(cardId) {
     const viewDiv = document.getElementById('card-view-' + cardId);
     const editDiv = document.getElementById('card-edit-' + cardId);
@@ -126,7 +320,6 @@ function toggleEditCard(cardId) {
     }
 }
 
-// Sauvegarder la modification sans recharger
 function saveCardEdit(cardId) {
     const newQ = document.getElementById('edit-q-' + cardId).value;
     const newA = document.getElementById('edit-a-' + cardId).value;
