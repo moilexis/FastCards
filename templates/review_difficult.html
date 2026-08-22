@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="text-align: center; max-width: 600px; margin: 0 auto;">
+    
+    <!-- EN-TÊTE -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #a0aec0;">
+        <span>Progression : <strong id="progress-text">1 / 1</strong></span>
+        <a href="{{ url_for('view_collection', collection_id=collection.id) }}" onclick="saveSessionData()" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
+    </div>
+
+    <h2 style="margin-bottom: 25px;">MODE DIFFICILE - {{ collection.name }}</h2>
+
+    <!-- CONTAINER GRANDE CARTE -->
+    <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
+    display: flex; flex-direction: column; justify-content: center; position: relative; 
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 40px; margin-left: 10px; margin-right: 10px;">
+        
+        <!-- Étoile (toujours active en mode difficile) -->
+        <button id="star-btn" type="button" onclick="toggleDifficult()" style="position: absolute; top: 10px; left: 10px; background: none; border: none; font-size: 2.2em; cursor: pointer; color: #f6ad55;" title="Basculer l'état difficile">
+            ★
+        </button>
+        
+        <div id="card-content" style="cursor: pointer;" onclick="toggleAnswer()">
+            <div id="recto-text" style="font-size: 1.2em; font-weight: bold; text-transform: uppercase; overflow: hidden;">
+                Chargement...
+            </div>
+            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px; overflow: hidden;">
+            </div>
+            
+            <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 30px; font-style: italic;">Retourne la carte en cliquant dessus</p>
+        </div>
+    </div>
+
+    <!-- BOUTONS JE SAIS PAS / JE SAIS -->
+    <div style="display: flex; gap: 15px; margin-top: 20px;">
+        <button type="button" onclick="submitAnswer(0)" style="flex: 1; background: rgba(229, 62, 62, 0.1); border: 2px solid #e53e3e; color: #e53e3e; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+            Je sais pas
+        </button>
+
+        <button type="button" onclick="submitAnswer(1)" style="flex: 1; background: rgba(56, 161, 105, 0.1); border: 2px solid #38a169; color: #38a169; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+            Je sais
+        </button>
+    </div>
+</div>
+
+<script>
+let cards = [];
+let currentIndex = 0;
+const startTime = Date.now();
+let cardsViewed = 0;
+let cardsSuccess = 0;
+let sessionSaved = false;
+
+document.addEventListener("DOMContentLoaded", function() {
+    // Charge TOUTES les cartes avec is_difficult == 1 (connues ou non)
+    fetch('/collection/{{ collection.id }}/data')
+        .then(res => res.json())
+        .then(data => {
+            cards = data.cards.filter(card => card.is_difficult === 1).sort(() => Math.random() - 0.5);
+
+            if (cards.length > 0) {
+                renderCard();
+            } else {
+                document.getElementById('recto-text').innerText = "Aucune carte marquée comme difficile ! ★";
+                document.getElementById('hint').style.display = 'none';
+            }
+        });
+});
+
+function renderCard() {
+    if (currentIndex >= cards.length) {
+        saveSessionData();
+        alert("Révision des cartes difficiles terminée ! 🎉");
+        window.location.href = "{{ url_for('view_collection', collection_id=collection.id) }}";
+        return;
+    }
+
+    const card = cards[currentIndex];
+    document.getElementById("recto-text").innerText = card.question;
+    document.getElementById("verso-text").innerText = card.answer;
+    document.getElementById("verso-text").style.display = "none";
+    document.getElementById("hint").style.display = "block";
+    
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
+}
+
+function toggleAnswer() {
+    const verso = document.getElementById("verso-text");
+    const hint = document.getElementById("hint");
+    verso.style.display = verso.style.display === "none" ? "block" : "none";
+    hint.style.display = verso.style.display === "none" ? "block" : "none";
+}
+
+function toggleDifficult() {
+    const card = cards[currentIndex];
+    card.is_difficult = card.is_difficult === 1 ? 0 : 1;
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
+}
+
+function submitAnswer(knows) {
+    if (cards.length === 0) return;
+    
+    cardsViewed++;
+    if (knows === 1) cardsSuccess++;
+
+    const card = cards[currentIndex];
+    card.is_known = knows; // Met à jour l'état local
+
+    // Met à jour l'état is_known en BDD (0 ou 1)
+    fetch(`/card/${card.id}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ knows: knows })
+    });
+
+    currentIndex++;
+    renderCard();
+}
+
+function saveSessionData() {
+    if (sessionSaved) return;
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    if (cardsViewed === 0 || durationSeconds < 2) return;
+
+    const payload = JSON.stringify({
+        collection_id: parseInt("{{ collection.id }}"),
+        mode: "flashcard_difficult",
+        duration_seconds: durationSeconds,
+        cards_viewed: cardsViewed,
+        cards_success: cardsSuccess
+    });
+
+    navigator.sendBeacon('/api/study_session', payload);
+    sessionSaved = true;
+}
+
+window.addEventListener('beforeunload', saveSessionData);
+</script>
+{% endblock %}

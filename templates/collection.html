@@ -170,8 +170,8 @@
         <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Saisie Clavier</span>
         <div class="modes-grid">
             <div class="mode-card" style="background-color: #38a169; border-color: #2f855a;">
-                <a href="{{ url_for('start_review', collection_id=collection.id, mode='input_normal') }}" style="color:inherit; text-decoration:none; flex:1;">Écrire la réponse</a>
-                <button class="fav-heart" data-mode="input_normal" onclick="toggleFav('input_normal')">&#10084;</button>
+                <a href="{{ url_for('start_review', collection_id=collection.id, mode='write') }}" style="color:inherit; text-decoration:none; flex:1;">Écrire la réponse</a>
+                <button class="fav-heart" data-mode="write" onclick="toggleFav('write')">&#10084;</button>
             </div>
         </div>
     </div>

@@ -288,30 +288,63 @@ def reset_collection_progress(collection_id):
 def start_review(collection_id, mode):
     collection = db.get_collection_details(collection_id, current_user.id)
     if not collection:
+        flash("Collection introuvable ou accès refusé.", "danger")
         return redirect(url_for('index'))
-        
-    if mode == 'all_reset':
-        db.reset_collection_progress(collection_id)
-        
-    all_cards = db.get_cards_by_collection(collection_id)
+
+    # Redirection vers la route dédiée au mode difficile
     if mode == 'difficult':
-        cards_to_review = [c for c in all_cards if c['is_difficult'] == 1 and c['is_known'] == 0]
-    elif mode == 'not_validated':
+        return redirect(url_for('review_difficult_mode', collection_id=collection_id))
+    if mode == 'write':
+        return redirect(url_for('review_write_mode', collection_id=collection_id))
+    all_cards = db.get_cards_by_collection(collection_id)
+
+    # Filtrage selon le mode
+    if mode == 'not_validated':
         cards_to_review = [c for c in all_cards if c['is_known'] == 0]
-    else:
+    else:  # Mode 'all' par défaut
         cards_to_review = list(all_cards)
-        
+
     if not cards_to_review:
         flash("Aucune carte à réviser dans ce mode !", "warning")
         return redirect(url_for('view_collection', collection_id=collection_id))
-        
+
     cards_list = [dict(c) for c in cards_to_review]
     random.shuffle(cards_list)
-    
+
     session['review_cards'] = [c['id'] for c in cards_list]
     session['review_index'] = 0
-    
+
     return redirect(url_for('render_review_card', collection_id=collection_id))
+
+
+@app.route('/collection/<int:collection_id>/review/difficult')
+@login_required
+def review_difficult_mode(collection_id):
+    collection = db.get_collection_details(collection_id, current_user.id)
+    if not collection:
+        flash("Collection introuvable.", "danger")
+        return redirect(url_for('index'))
+
+    # Vérification rapide s'il y a des cartes difficiles
+    all_cards = db.get_cards_by_collection(collection_id)
+    difficult_cards = [c for c in all_cards if c['is_difficult'] == 1]
+
+    if not difficult_cards:
+        flash("Aucune carte marquée comme difficile dans cette collection !", "warning")
+        return redirect(url_for('view_collection', collection_id=collection_id))
+
+    return render_template('review_difficult.html', collection=collection)
+
+@app.route('/collection/<int:collection_id>/review/write')
+@login_required
+def review_write_mode(collection_id):
+    collection = db.get_collection_details(collection_id, current_user.id)
+    if not collection:
+        flash("Collection introuvable.", "danger")
+        return redirect(url_for('index'))
+
+    return render_template('review_write.html', collection=collection)
+
 
 @app.route('/collection/<int:collection_id>/data')
 def get_collection_cards(collection_id):
@@ -528,6 +561,7 @@ def reset_my_favorites():
     
     flash("Favoris réinitialisés avec succès !", "success")
     return redirect(url_for('index'))
+
 
 if __name__ == '__main__':
     app.run(debug=True)

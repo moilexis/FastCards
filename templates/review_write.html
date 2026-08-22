@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="text-align: center; max-width: 600px; margin: 0 auto;" id="main-container">
+    
+    <!-- EN-TÊTE -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #a0aec0;">
+        <span>Progression : <strong id="progress-text">1 / 1</strong></span>
+        <a href="{{ url_for('view_collection', collection_id=collection.id) }}" onclick="saveSessionData()" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
+    </div>
+
+    <h2 style="margin-bottom: 25px;">MODE ÉCRITURE - {{ collection.name }}</h2>
+
+    <!-- CARTE PRINCIPALE -->
+    <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 220px; 
+    display: flex; flex-direction: column; justify-content: center; position: relative; 
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 30px; margin-left: 10px; margin-right: 10px;">
+        
+        <button id="star-btn" type="button" onclick="toggleDifficult(event)" style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 2em; cursor: pointer; color: #cbd5e0;">
+            ★
+        </button>
+        
+        <div id="recto-text" style="font-size: 1.3em; font-weight: bold; text-transform: uppercase;">
+            Chargement...
+        </div>
+        
+        <!-- Réponse attendue (masquée au départ) -->
+        <div id="expected-answer" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px;">
+        </div>
+    </div>
+
+    <!-- ZONE DE SAISIE OU DE RÉSULTAT -->
+    <div id="interactive-zone" style="margin-top: 20px;">
+        <!-- Formulaire de saisie -->
+        <form id="write-form" onsubmit="checkAnswer(event)" style="display: flex; gap: 10px;">
+            <input type="text" id="user-input" placeholder="..." autocomplete="off" style="flex: 1; padding: 18px 25px; border-radius: 20px; border: 2px solid #cbd5e0; font-size: 1.2em; text-align: center; outline: none; background: #edf2f7; color: #1a202c;">
+        </form>
+
+        <!-- Bloc Feedback (masqué au départ) -->
+        <div id="feedback-box" style="display: none; padding: 20px; border-radius: 20px; font-size: 1.3em; font-weight: bold; color: #ffffff; text-align: center; cursor: pointer;">
+        </div>
+    </div>
+</div>
+
+<script>
+let cards = [];
+let currentIndex = 0;
+const startTime = Date.now();
+let cardsViewed = 0;
+let cardsSuccess = 0;
+let sessionSaved = false;
+let isAnswered = false;
+let readyForNext = false; // Sécurité pour éviter de passer immédiatement si l'utilisateur valides par Entrée
+
+document.addEventListener("DOMContentLoaded", function() {
+    fetch('/collection/{{ collection.id }}/data')
+        .then(res => res.json())
+        .then(data => {
+            cards = data.cards.filter(card => card.is_known === 0).sort(() => Math.random() - 0.5);
+
+            if (cards.length > 0) {
+                renderCard();
+            } else {
+                document.getElementById('recto-text').innerText = "Toutes les cartes de cette collection sont déjà validées ! 🎉";
+                document.getElementById('interactive-zone').style.display = 'none';
+            }
+        });
+
+    // Passer à la carte suivante au clic
+    document.addEventListener("click", function(e) {
+        if (readyForNext && e.target.id !== 'star-btn') {
+            nextCard();
+        }
+    });
+
+    // Passer à la carte suivante via n'importe quelle touche du clavier
+    document.addEventListener("keydown", function(e) {
+        if (readyForNext) {
+            e.preventDefault();
+            nextCard();
+        }
+    });
+});
+
+function renderCard() {
+    if (currentIndex >= cards.length) {
+        saveSessionData();
+        alert("Session d'écriture terminée ! 🎉");
+        window.location.href = "{{ url_for('view_collection', collection_id=collection.id) }}";
+        return;
+    }
+
+    isAnswered = false;
+    readyForNext = false;
+    const card = cards[currentIndex];
+    
+    document.getElementById("recto-text").innerText = card.question;
+    document.getElementById("expected-answer").innerText = card.answer;
+    document.getElementById("expected-answer").style.display = "none";
+    
+    const input = document.getElementById("user-input");
+    input.value = "";
+    document.getElementById("write-form").style.display = "flex";
+    document.getElementById("feedback-box").style.display = "none";
+    
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
+    
+    setTimeout(() => input.focus(), 100);
+}
+
+defNormalize = (str) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+function checkAnswer(event) {
+    event.preventDefault();
+    if (isAnswered) return;
+
+    const userInputRaw = document.getElementById("user-input").value.trim();
+    const expectedRaw = cards[currentIndex].answer.trim();
+
+    const userWords = userInputRaw.split(/\s+/);
+    const expectedWords = expectedRaw.split(/\s+/);
+
+    let isCorrect = true;
+
+    if (userWords.length !== expectedWords.length) {
+        isCorrect = false;
+    } else {
+        for (let i = 0; i < expectedWords.length; i++) {
+            const uWord = userWords[i].toLowerCase();
+            const eWord = expectedWords[i].toLowerCase();
+
+            const uWordNoAccents = defNormalize(uWord);
+            const eWordNoAccents = defNormalize(eWord);
+
+            if (uWord === uWordNoAccents) {
+                if (uWordNoAccents !== eWordNoAccents) {
+                    isCorrect = false;
+                    break;
+                }
+            } else {
+                if (uWord !== eWord) {
+                    isCorrect = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    cardsViewed++;
+    const card = cards[currentIndex];
+    
+    if (isCorrect) {
+        cardsSuccess++;
+        card.is_known = 1;
+        fetch(`/card/${card.id}/answer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ knows: 1 })
+        });
+    }
+
+    document.getElementById("expected-answer").style.display = "block";
+    document.getElementById("write-form").style.display = "none";
+    
+    const feedback = document.getElementById("feedback-box");
+    feedback.style.display = "block";
+    feedback.innerText = userInputRaw || "(Aucune réponse)";
+    feedback.style.background = isCorrect ? "#84cc16" : "#ef4444";
+
+    isAnswered = true;
+    
+    // Léger délai (150ms) pour éviter que l'appui sur "Entrée" du formulaire ne déclenche immédiatement la carte suivante
+    setTimeout(() => { 
+        readyForNext = true; 
+    }, 150);
+}
+
+function nextCard() {
+    currentIndex++;
+    renderCard();
+}
+
+function toggleDifficult(e) {
+    e.stopPropagation();
+    const card = cards[currentIndex];
+    card.is_difficult = card.is_difficult === 1 ? 0 : 1;
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
+}
+
+function saveSessionData() {
+    if (sessionSaved) return;
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    if (cardsViewed === 0 || durationSeconds < 2) return;
+
+    const payload = JSON.stringify({
+        collection_id: parseInt("{{ collection.id }}"),
+        mode: "write",
+        duration_seconds: durationSeconds,
+        cards_viewed: cardsViewed,
+        cards_success: cardsSuccess
+    });
+
+    navigator.sendBeacon('/api/study_session', payload);
+    sessionSaved = true;
+}
+
+window.addEventListener('beforeunload', saveSessionData);
+</script>
+{% endblock %}
