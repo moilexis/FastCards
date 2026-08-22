@@ -549,6 +549,76 @@ def update_user_favorites():
 
     return jsonify({'status': 'ok'}), 200
 
+from werkzeug.security import generate_password_hash, check_password_hash
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    user_row = db.get_user_by_id(current_user.id)
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'update_profile':
+            new_username = request.form.get('username', '').strip()
+            old_password = request.form.get('old_password', '')
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+
+            # Vérification du mot de passe actuel
+            if not check_password_hash(user_row['password_hash'], old_password):
+                flash("Ancien mot de passe incorrect.", "danger")
+            elif not new_username:
+                flash("Le nom d'utilisateur ne peut pas être vide.", "danger")
+            else:
+                # Changement de mot de passe facultatif
+                new_hash = None
+                if new_password or confirm_password:
+                    if new_password != confirm_password:
+                        flash("Les deux nouveaux mots de passe ne correspondent pas.", "danger")
+                        return redirect(url_for('profile'))
+                    new_hash = generate_password_hash(new_password)
+
+                # Mise à jour via database.py qui renvoie True ou False
+                success = db.update_user_profile(current_user.id, new_username, new_hash)
+                
+                if success:
+                    flash("Profil mis à jour avec succès !", "success")
+                    return redirect(url_for('profile'))
+                else:
+                    flash("Ce nom d'utilisateur est déjà utilisé.", "danger")
+
+    # Récupération et formatage des statistiques
+    stats = db.get_user_stats(current_user.id)
+    
+    MODE_LABELS = {
+        'all': 'Tout réviser',
+        'not_validated': 'Cartes non vues',
+        'difficult': 'Cartes difficiles',
+        'write': 'Mode Écriture',
+        'flashcard_difficult': 'Cartes difficiles'
+    }
+
+    sessions_formatted = []
+    for s in stats['today_sessions']:
+        session_dict = dict(s)
+        
+        # Construction de l'arborescence
+        if session_dict['category_id']:
+            cat_path = get_category_full_path(session_dict['category_id'], current_user.id)
+            session_dict['full_path'] = f"{cat_path} / {session_dict['collection_name']}"
+        else:
+            session_dict['full_path'] = session_dict['collection_name']
+            
+        # Label lisible du mode
+        session_dict['mode_label'] = MODE_LABELS.get(session_dict['mode'], session_dict['mode'])
+        
+        sessions_formatted.append(session_dict)
+    
+    stats['today_sessions'] = sessions_formatted
+
+    return render_template('profile.html', user=user_row, stats=stats)
+
 # ROUTE DEBUG / RESET
 @app.route('/reset_my_favorites')
 @login_required

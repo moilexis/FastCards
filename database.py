@@ -318,3 +318,82 @@ def invert_cards_in_collection(collection_id):
             WHERE collection_id = ?
         """, (collection_id,))
         conn.commit()
+
+def update_user_profile(user_id, new_username, new_password_hash=None):
+    with get_db_connection() as conn:
+        if new_password_hash:
+            conn.execute(
+                "UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
+                (new_username, new_password_hash, user_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET username = ? WHERE id = ?",
+                (new_username, user_id)
+            )
+        conn.commit()
+
+def get_user_stats(user_id):
+    with get_db_connection() as conn:
+        # Temps total global (en secondes)
+        total_time_row = conn.execute(
+            "SELECT SUM(duration_seconds) AS total_sec FROM study_sessions WHERE user_id = ?",
+            (user_id,)
+        ).fetchone()
+        total_seconds = total_time_row['total_sec'] if total_time_row and total_time_row['total_sec'] else 0
+
+        # Temps, cartes vues et cartes réussies (Aujourd'hui)
+        today_row = conn.execute('''
+            SELECT 
+                SUM(duration_seconds) AS today_sec,
+                SUM(cards_viewed) AS today_cards,
+                SUM(cards_success) AS today_success
+            FROM study_sessions 
+            WHERE user_id = ? AND DATE(created_at, 'localtime') = DATE('now', 'localtime')
+        ''', (user_id,)).fetchone()
+        
+        today_seconds = today_row['today_sec'] if today_row and today_row['today_sec'] else 0
+        today_cards = today_row['today_cards'] if today_row and today_row['today_cards'] else 0
+        today_success = today_row['today_success'] if today_row and today_row['today_success'] else 0
+
+        # Liste des sessions du jour
+        today_sessions = conn.execute('''
+            SELECT 
+                s.mode,
+                s.duration_seconds,
+                s.cards_viewed,
+                s.cards_success,
+                c.name AS collection_name,
+                c.category_id,
+                strftime('%H:%M', s.created_at, 'localtime') AS session_time
+            FROM study_sessions s
+            LEFT JOIN collections c ON s.collection_id = c.id
+            WHERE s.user_id = ? AND DATE(s.created_at, 'localtime') = DATE('now', 'localtime')
+            ORDER BY s.created_at DESC
+        ''', (user_id,)).fetchall()
+
+    return {
+        'total_seconds': total_seconds,
+        'today_seconds': today_seconds,
+        'today_cards': today_cards,
+        'today_success': today_success,
+        'today_sessions': today_sessions
+    }
+
+def update_user_profile(user_id, new_username, new_password_hash=None):
+    try:
+        with get_db_connection() as conn:
+            if new_password_hash:
+                conn.execute(
+                    "UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
+                    (new_username, new_password_hash, user_id)
+                )
+            else:
+                conn.execute(
+                    "UPDATE users SET username = ? WHERE id = ?",
+                    (new_username, user_id)
+                )
+            conn.commit()
+            return True
+    except sqlite3.IntegrityError:
+        return False
