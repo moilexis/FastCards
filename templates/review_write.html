@@ -117,16 +117,34 @@ function checkAnswer(event) {
     if (isAnswered) return;
 
     const userInputRaw = document.getElementById("user-input").value.trim();
-    const expectedRaw = cards[currentIndex].answer.trim();
+    const expectedRaw = cards[currentIndex].answer;
 
-    const userWords = userInputRaw.split(/\s+/);
-    const expectedWords = expectedRaw.split(/\s+/);
+    // Découpage des alternatives séparées par /
+    const rawOptions = expectedRaw.split('/').map(s => s.trim());
 
-    let isCorrect = true;
+    // Génération de toutes les options valides (avec et sans le contenu des parenthèses)
+    const possibleAnswers = [];
+    for (const opt of rawOptions) {
+        // Option 1 : La chaîne originale avec tout
+        possibleAnswers.push(opt);
+        
+        // Option 2 : Sans les parenthèses et leur contenu (ex: "der König (E)" -> "der König")
+        const stripped = opt.replace(/\s*\([^)]*\)/g, '').trim();
+        if (stripped && stripped !== opt) {
+            possibleAnswers.push(stripped);
+        }
+    }
 
-    if (userWords.length !== expectedWords.length) {
-        isCorrect = false;
-    } else {
+    let isCorrect = false;
+
+    // Test de la saisie utilisateur contre chaque option
+    for (const option of possibleAnswers) {
+        const userWords = userInputRaw.split(/\s+/).filter(Boolean);
+        const expectedWords = option.split(/\s+/).filter(Boolean);
+
+        if (userWords.length !== expectedWords.length) continue;
+
+        let match = true;
         for (let i = 0; i < expectedWords.length; i++) {
             const uWord = userWords[i].toLowerCase();
             const eWord = expectedWords[i].toLowerCase();
@@ -136,18 +154,24 @@ function checkAnswer(event) {
 
             if (uWord === uWordNoAccents) {
                 if (uWordNoAccents !== eWordNoAccents) {
-                    isCorrect = false;
+                    match = false;
                     break;
                 }
             } else {
                 if (uWord !== eWord) {
-                    isCorrect = false;
+                    match = false;
                     break;
                 }
             }
         }
+
+        if (match) {
+            isCorrect = true;
+            break;
+        }
     }
 
+    // Affichage des résultats & mise à jour BDD
     cardsViewed++;
     const card = cards[currentIndex];
     
@@ -170,11 +194,7 @@ function checkAnswer(event) {
     feedback.style.background = isCorrect ? "#84cc16" : "#ef4444";
 
     isAnswered = true;
-    
-    // Léger délai (150ms) pour éviter que l'appui sur "Entrée" du formulaire ne déclenche immédiatement la carte suivante
-    setTimeout(() => { 
-        readyForNext = true; 
-    }, 150);
+    setTimeout(() => { readyForNext = true; }, 150);
 }
 
 function nextCard() {
