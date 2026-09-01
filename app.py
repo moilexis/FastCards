@@ -1,7 +1,7 @@
 import os
 import json
 import random
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash
 import database as db
@@ -619,6 +619,50 @@ def profile():
 
     return render_template('profile.html', user=user_row, stats=stats)
 
+@app.route('/category/<int:category_id>/rename', methods=['POST'])
+@login_required
+def rename_category(category_id):
+    new_name = request.form.get('name', '').strip()
+    if new_name:
+        db.update_category_name(category_id, current_user.id, new_name)
+        flash("Dossier renommé avec succès.", "success")
+    else:
+        flash("Le nom du dossier ne peut pas être vide.", "danger")
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/collection/<int:collection_id>/rename', methods=['POST'])
+@login_required
+def rename_collection(collection_id):
+    new_name = request.form.get('name', '').strip()
+    if new_name:
+        db.update_collection_name(collection_id, current_user.id, new_name)
+        flash("Collection renommée avec succès.", "success")
+    else:
+        flash("Le nom de la collection ne peut pas être vide.", "danger")
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/collection/<int:collection_id>/export/txt')
+@login_required
+def export_collection_txt(collection_id):
+    collection = db.get_collection_details(collection_id, current_user.id)
+    
+    if not collection:
+        flash("Collection introuvable.", "danger")
+        return redirect(url_for('index'))
+
+    cards = db.get_cards_by_collection(collection_id)
+
+    # Formatage : question ; answer
+    lines = [f"{card['question']} ; {card['answer']}" for card in cards]
+    content = "\n".join(lines)
+    
+    filename = f"export_{collection['name'].lower().replace(' ', '_')}.txt"
+    
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-disposition": f"attachment; filename={filename}"}
+    )
 # ROUTE DEBUG / RESET
 @app.route('/reset_my_favorites')
 @login_required

@@ -119,20 +119,18 @@ function checkAnswer(event) {
     const userInputRaw = document.getElementById("user-input").value.trim();
     const expectedRaw = cards[currentIndex].answer;
 
-    // Découpage des alternatives séparées par /
-    const rawOptions = expectedRaw.split('/').map(s => s.trim());
+    // Découpage des alternatives séparées par |
+    const rawOptions = expectedRaw.split('|').map(s => s.trim());
 
-    // Génération de toutes les options valides (avec et sans le contenu des parenthèses)
+    // Génération des réponses autorisées (systématiquement nettoyées des parenthèses)
     const possibleAnswers = [];
     for (const opt of rawOptions) {
-        // Option 1 : La chaîne originale avec tout
-        possibleAnswers.push(opt);
-        
-        // Option 2 : Sans les parenthèses et leur contenu (ex: "der König (E)" -> "der König")
-        const stripped = opt.replace(/\s*\([^)]*\)/g, '').trim();
-        if (stripped && stripped !== opt) {
-            possibleAnswers.push(stripped);
-        }
+    // Version nettoyée sans parenthèses (ex: "der König (E)" -> "der König")
+    const stripped = opt.replace(/\s*\([^)]*\)/g, '').trim();
+    if (stripped) possibleAnswers.push(stripped);
+    
+    // Garde l'option complète si l'utilisateur décide quand même de saisir les parenthèses
+    if (opt !== stripped) possibleAnswers.push(opt);
     }
 
     let isCorrect = false;

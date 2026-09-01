@@ -188,6 +188,7 @@ def insert_cards_bulk(collection_id, cards_list):
 
 def get_cards_by_collection(collection_id):
     with get_db_connection() as conn:
+        conn.row_factory = sqlite3.Row  # Permet d'accéder aux champs par leur nom (ex: card['front'])
         return conn.execute(
             "SELECT * FROM cards WHERE collection_id = ?",
             (collection_id,)
@@ -397,3 +398,19 @@ def update_user_profile(user_id, new_username, new_password_hash=None):
             return True
     except sqlite3.IntegrityError:
         return False
+
+def update_category_name(category_id, user_id, new_name):
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE categories SET name = ? WHERE id = ? AND user_id = ?",
+            (new_name, category_id, user_id)
+        )
+        conn.commit()
+
+def update_collection_name(collection_id, user_id, new_name):
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE collections SET name = ? WHERE id = ? AND user_id = ?",
+            (new_name, collection_id, user_id)
+        )
+        conn.commit()

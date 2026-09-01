@@ -249,13 +249,55 @@
         {% endfor %}
     </div>
 {% endif %}
+<!-- SECTION EXPORTATION RECTO ; VERSO (RÉTRACTABLE) -->
+<details style="margin-top: 40px; background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; transition: all 0.2s ease;">
+    <summary style="padding: 14px 18px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 1.05em; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+        <span>Exporter les cartes (Format texte : Recto ; Verso)</span>
+        <span style="font-size: 0.85em; color: #a0aec0; font-weight: normal;">
+            ({{ cards|length }} carte{{ 's' if cards|length > 1 else '' }})
+        </span>
+    </summary>
+
+    <div style="padding: 15px 18px 18px 18px; background: #1a202c; border-top: 1px solid #4a5568; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; display: flex; flex-direction: column; gap: 12px;">
+        
+        <!-- Boutons d'actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="copyExportText()" style="background: #4a5568; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: background 0.2s;" onmouseover="this.style.background='#718096'" onmouseout="this.style.background='#4a5568'">
+                 Copier le texte
+            </button>
+            <a href="{{ url_for('export_collection_txt', collection_id=collection.id) }}" style="background: #3182ce; color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; display: inline-block;">
+                 Télécharger .txt
+            </a>
+        </div>
+
+        <!-- Zone de texte récapitulative -->
+        <textarea id="exportTextArea" readonly style="width: 100%; height: 160px; background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.9em; resize: vertical; box-sizing: border-box;">{% for card in cards %}{{ card.question }} ; {{ card.answer }}{% if not loop.last %}
+{% endif %}{% endfor %}</textarea>
+    </div>
+</details>
 
 <script>
+
+
+
 let userFavorites = JSON.parse('{{ user_favs|default(["fc_not_validated", "fc_all", "fc_difficult"])|tojson }}');
 
 document.addEventListener("DOMContentLoaded", function() {
     updateFavoritesUI();
 });
+
+function copyExportText() {
+    const textarea = document.getElementById('exportTextArea');
+    textarea.select();
+    textarea.setSelectionRange(0, 99999);
+
+    navigator.clipboard.writeText(textarea.value).then(() => {
+        alert("Cartes copiées dans le presse-papier !");
+    }).catch(() => {
+        document.execCommand('copy');
+        alert("Cartes copiées dans le presse-papier !");
+    });
+}
 
 function updateFavoritesUI() {
     const favContainer = document.getElementById('favorites-container');
