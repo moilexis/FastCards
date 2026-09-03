@@ -2,7 +2,6 @@
 {% block content %}
 
 <style>
-    /* HUB DE RÉVISION SANS CONTENEUR GRIS */
     .revision-hub {
         background: transparent;
         border: none;
@@ -113,10 +112,13 @@
     @media (max-width: 600px) {
         .time-part { display: none; }
     }
+    
+    .star-icon { font-size: 1.3em; color: #718096; cursor: default; }
+    .star-icon.difficult { color: #f6ad55; }
+
 </style>
 
 <div class="revision-hub">
-    <!-- EN-TÊTE & RESET -->
     <div class="hub-header">
         <div>
             <h2 style="margin: 0; font-size: 1.6em;">{{ collection.name }}</h2>
@@ -130,11 +132,9 @@
                 <span style="font-size: 0.75em; color: #a0aec0; display: block; text-transform: uppercase;">PROGRESSION</span>
                 <strong style="font-size: 1.1em; color: #68d391;">{{ stats.known|default(0) }} <span style="color: #718096; font-size: 0.85em;">/ {{ stats.total|default(cards|length) }}</span></strong>
             </div>
-
         </div>
     </div>
 
-    <!-- HORODATAGE DE DERNIÈRE RÉVISION -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
         <h3 style="font-size: 1.05em; margin: 0;">Réviser</h3>
         <span style="color: #a0aec0; font-size: 0.85em;">
@@ -144,16 +144,16 @@
                 <em>Jamais révisé</em>
             {% endif %}
         </span>
+        {% if not current_user.is_guest %}
         <form action="{{ url_for('reset_collection_progress', collection_id=collection.id) }}" method="POST" onsubmit="return confirm('Réinitialiser la progression de cette collection ?');" style="margin:0;">
-                <button type="submit" class="btn-reset">RESET</button>
-            </form>
+            <button type="submit" class="btn-reset">RESET</button>
+        </form>
+        {% endif %}
     </div>
 
-    <!-- FAVORIS SÉLECTIONNÉS (MAX 3) -->
     <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Favoris</span>
     <div id="favorites-container" class="modes-grid"></div>
 
-    <!-- TOUS LES MODES DE RÉVISION -->
     <div id="all-modes-container" style="display: none; margin-top: 15px;">
         <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase;">Flashcards</span>
         <div class="modes-grid">
@@ -181,8 +181,8 @@
     </div>
 </div>
 
-<!-- AJOUT EN MASSE -->
- <h3 style="font-size: 1.05em; margin: 0;">Créér des cartes</h3>
+{% if not current_user.is_guest %}
+<h3 style="font-size: 1.05em; margin: 0;">Créer des cartes</h3>
 <details style="background: #1a202c; border: 1px solid #2d3748; border-radius: 8px; margin-bottom: 20px; margin-top: 20px;">
     <summary style="padding: 10px 15px; color: #a0aec0; font-weight: bold; cursor: pointer; font-size: 0.9em;">
         + Ajouter des cartes en masse
@@ -195,15 +195,22 @@
         </form>
     </div>
 </details>
+{% endif %}
 
-<!-- CARTES -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
     <h3 style="font-size: 1.05em; margin: 0;">Cartes ({{ cards|length }})</h3>
+    
+    {% if not current_user.is_guest %}
     <form action="{{ url_for('invert_collection', collection_id=collection.id) }}" method="POST" style="margin: 0;">
         <button type="submit" style="padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; background-color: #805ad5; color: white; border: none; font-size: 0.8em;">
-            ⇄ Inverser
+            ⇄ Inverser 
         </button>
     </form>
+    {% else %}
+    <button type="button" onclick="invertLocalCards()" style="padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; background-color: #3182ce; color: white; border: none; font-size: 0.8em;">
+        ⇄ Inverser 
+    </button>
+    {% endif %}
 </div>
 
 {% if not cards %}
@@ -216,19 +223,21 @@
             <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 12px; border-radius: 12px; min-height: 100px; box-sizing: border-box;">
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    {% if card.is_difficult == 1 %}
-                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #f6ad55; padding: 0; line-height: 1;">
-                    {% else %}
-                        <button type="button" onclick="toggleDifficultAsync('{{ card.id }}', this)" style="background: none; border: none; font-size: 1.3em; cursor: pointer; color: #718096; padding: 0; line-height: 1;">
-                    {% endif %}
-                            ★
-                        </button>
+
+    
+                    <span class="star-icon {{ 'difficult' if card.is_difficult }}" 
+                        onclick="toggleCardDifficulty('{{ card.id }}', this)"
+                        style="cursor: pointer; font-size: 1.3em;">★</span>
+
+                    {% if not current_user.is_guest %}
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: none; border: none; color: #a0aec0; cursor: pointer; padding: 0; font-size:100%;" title="Éditer">&#x1F527;</button>
                         <button type="button" onclick="deleteCardAsync('{{ card.id }}')" style="background: rgba(229, 62, 62, 0.2); border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Supprimer">
                             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#e53e3e" stroke-width="2"><line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" /></svg>
                         </button>
                     </div>
+                    {% endif %}
+
                 </div>
 
                 <div id="card-view-{{ card.id }}" style="text-align: left; word-break: break-word;">
@@ -236,6 +245,7 @@
                     <div id="a-text-{{ card.id }}" style="color: #a0aec0; font-size: 0.8em; font-style: italic;">{{ card.answer }}</div>
                 </div>
 
+                {% if not current_user.is_guest %}
                 <div id="card-edit-{{ card.id }}" style="display: none; flex-direction: column; gap: 6px;">
                     <input type="text" id="edit-q-{{ card.id }}" value="{{ card.question }}" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;">
                     <input type="text" id="edit-a-{{ card.id }}" value="{{ card.answer }}" style="background: #1a202c; color: #a0aec0; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.8em; width: 100%; box-sizing: border-box;">
@@ -244,12 +254,14 @@
                         <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: #718096; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75em; cursor: pointer;">✕</button>
                     </div>
                 </div>
+                {% endif %}
 
             </div>
         {% endfor %}
     </div>
 {% endif %}
-<!-- SECTION EXPORTATION RECTO ; VERSO (RÉTRACTABLE) -->
+
+<!-- EXPORTATION -->
 <details style="margin-top: 40px; background: #2d3748; border: 1px solid #4a5568; border-radius: 12px; transition: all 0.2s ease;">
     <summary style="padding: 14px 18px; font-weight: bold; cursor: pointer; color: #ffeebc; font-size: 1.05em; display: flex; align-items: center; justify-content: space-between; user-select: none;">
         <span>Exporter les cartes (Format texte : Recto ; Verso)</span>
@@ -259,8 +271,6 @@
     </summary>
 
     <div style="padding: 15px 18px 18px 18px; background: #1a202c; border-top: 1px solid #4a5568; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; display: flex; flex-direction: column; gap: 12px;">
-        
-        <!-- Boutons d'actions -->
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
             <button type="button" onclick="copyExportText()" style="background: #4a5568; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: background 0.2s;" onmouseover="this.style.background='#718096'" onmouseout="this.style.background='#4a5568'">
                  Copier le texte
@@ -270,16 +280,12 @@
             </a>
         </div>
 
-        <!-- Zone de texte récapitulative -->
         <textarea id="exportTextArea" readonly style="width: 100%; height: 160px; background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 0.9em; resize: vertical; box-sizing: border-box;">{% for card in cards %}{{ card.question }} ; {{ card.answer }}{% if not loop.last %}
 {% endif %}{% endfor %}</textarea>
     </div>
 </details>
 
 <script>
-
-
-
 let userFavorites = JSON.parse('{{ user_favs|default(["fc_not_validated", "fc_all", "fc_difficult"])|tojson }}');
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -349,6 +355,18 @@ function toggleDrawer() {
     label.innerText = isHidden ? 'RÉDUIRE ▲' : 'AFFICHER PLUS ▼';
 }
 
+function invertLocalCards() {
+  document.querySelectorAll('[id^="q-text-"]').forEach(qEl => {
+    const cardId = qEl.id.replace('q-text-', '');
+    const aEl = document.getElementById('a-text-' + cardId);
+    
+    if (aEl) {
+      const temp = qEl.innerText;
+      qEl.innerText = aEl.innerText;
+      aEl.innerText = temp;
+    }
+  });
+}
 function toggleEditCard(cardId) {
     const viewDiv = document.getElementById('card-view-' + cardId);
     const editDiv = document.getElementById('card-edit-' + cardId);
@@ -379,18 +397,6 @@ function saveCardEdit(cardId) {
     });
 }
 
-function toggleDifficultAsync(cardId, buttonElement) {
-    let formData = new FormData();
-    formData.append('action', 'toggle_difficult');
-    formData.append('card_id', cardId);
-
-    fetch(window.location.href, { method: 'POST', body: formData }).then(response => {
-        if (response.ok) {
-            buttonElement.style.color = (buttonElement.style.color === 'rgb(246, 173, 85)') ? '#718096' : '#f6ad55';
-        }
-    });
-}
-
 function deleteCardAsync(cardId) {
     if (!confirm('Supprimer cette carte ?')) return;
     let formData = new FormData();
@@ -403,6 +409,19 @@ function deleteCardAsync(cardId) {
             if (row) row.remove();
         }
     });
+}
+function toggleCardDifficulty(cardId, el) {
+    fetch(`/card/${cardId}/toggle_difficult`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            el.classList.toggle('difficult');
+        }
+    })
+    .catch(err => console.error("Erreur toggle carte:", err));
 }
 </script>
 {% endblock %}

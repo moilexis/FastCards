@@ -4,9 +4,8 @@
     
     <h2 style="margin-bottom: 25px;">Mon Profil & Statistiques</h2>
 
-    <!-- CARTES STATISTIQUES GLOBALES ET QUOTIDIENNES -->
+    <!-- CARTES STATISTIQUES -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
-        
         <div style="background: #2d3748; padding: 20px; border-radius: 15px; text-align: center;">
             <div style="font-size: 0.9em; color: #a0aec0;">Temps Total d'Étude</div>
             <div style="font-size: 1.8em; font-weight: bold; margin-top: 5px;">
@@ -28,36 +27,71 @@
                 <span style="color: #a0aec0; font-size: 0.8em;">/ {{ stats.today_cards }}</span>
             </div>
         </div>
-
     </div>
 
-    <!-- REVISION DU JOUR (DÉTAILS DES SESSIONS) -->
+    <!-- REVISION DU JOUR -->
     <div style="background: #2d3748; padding: 25px; border-radius: 20px; margin-bottom: 35px;">
         <h3 style="margin-bottom: 15px;">Sessions de révision du jour</h3>
         {% if stats.today_sessions %}
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-        {% for s in stats.today_sessions %}
-            <div style="background: #1a202c; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <!-- Utilisation de <abbr> avec title pour le survol -->
-                    <abbr title="{{ s.full_path }}" style="text-decoration: underline dotted #a0aec0; cursor: help; font-size: 1.05em; font-weight: bold;">
-                        {{ s.collection_name or "Collection supprimée" }}
-                    </abbr>
-                    <span style="font-size: 0.85em; color: #a0aec0; margin-left: 8px;">({{ s.mode_label }})</span>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            {% for s in stats.today_sessions %}
+                <div style="background: #1a202c; padding: 15px 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <abbr title="{{ s.full_path }}" style="text-decoration: underline dotted #a0aec0; cursor: help; font-size: 1.05em; font-weight: bold;">
+                            {{ s.collection_name or "Collection supprimée" }}
+                        </abbr>
+                        <span style="font-size: 0.85em; color: #a0aec0; margin-left: 8px;">({{ s.mode_label }})</span>
+                    </div>
+                    <div style="text-align: right; font-size: 0.9em;">
+                        <span style="color: #68d391; font-weight: bold;">{{ s.cards_success }} / {{ s.cards_viewed }} vues</span>
+                        <span style="color: #a0aec0; margin-left: 15px;">à {{ s.session_time }} ({{ s.duration_seconds }}s)</span>
+                    </div>
                 </div>
-                <div style="text-align: right; font-size: 0.9em;">
-                    <span style="color: #68d391; font-weight: bold;">{{ s.cards_success }} / {{ s.cards_viewed }} vues</span>
-                    <span style="color: #a0aec0; margin-left: 15px;">à {{ s.session_time }} ({{ s.duration_seconds }}s)</span>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <p style="color: #a0aec0; font-style: italic;">Aucune révision effectuée aujourd'hui.</p>
-{% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color: #a0aec0; font-style: italic;">Aucune révision effectuée aujourd'hui.</p>
+        {% endif %}
     </div>
 
-    <!-- FORMULAIRE MODIFICATION DU COMPTE -->
+    <!-- SECTION : PARTAGER MON COMPTE (INVITÉ) -->
+    <div style="background: #2d3748; padding: 25px; border-radius: 20px; margin-bottom: 35px;">
+        <h3 style="margin-bottom: 10px;">Partager mon compte (Espace Invité)</h3>
+        <p style="color: #a0aec0; font-size: 0.9em; margin-bottom: 20px;">
+            Créez un accès secondaire réservé à vos proches ou camarades. Ils pourront réviser vos cartes sans modifier votre progression ni vos contenus.
+        </p>
+
+        <form method="POST" action="{{ url_for('profile') }}" style="display: flex; flex-direction: column; gap: 15px; max-width: 500px;">
+            <input type="hidden" name="action" value="save_guest">
+
+            <div>
+                <label style="display: block; margin-bottom: 5px; font-size: 0.9em; color: #a0aec0;">Identifiant Invité</label>
+                <input type="text" name="guest_username" value="{{ guest_account.username if guest_account else '' }}" required placeholder="Ex: invite_aure" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+            </div>
+
+            <div>
+                <label style="display: block; margin-bottom: 5px; font-size: 0.9em; color: #a0aec0;">Mot de passe Invité</label>
+                <input type="password" name="guest_password" required placeholder="Définir le mot de passe invité" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #4a5568; background: #1a202c; color: white;">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 5px;">
+                <button type="submit" style="background: #38a169; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; flex: 1;">
+                    {{ 'Mettre à jour l\'accès invité' if guest_account else 'Activer le partage' }}
+                </button>
+            </div>
+        </form>
+
+        {% if guest_account %}
+        <form method="POST" action="{{ url_for('profile') }}" style="margin-top: 15px; max-width: 500px;" onsubmit="return confirm('Désactiver le compte invité ?');">
+            <input type="hidden" name="action" value="delete_guest">
+            <button type="submit" style="background: rgba(229, 62, 62, 0.2); color: #feb2b2; border: 1px solid #e53e3e; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85em; width: 100%;">
+                Désactiver / Supprimer l'accès invité
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- FORMULAIRE MODIFICATION DU COMPTE PROPRIÉTAIRE -->
     <div style="background: #2d3748; padding: 25px; border-radius: 20px;">
         <h3 style="margin-bottom: 20px;">Modifier mes informations</h3>
         

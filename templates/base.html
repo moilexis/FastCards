@@ -13,11 +13,23 @@
     </style>
 </head>
 <body>
+    {% if current_user.is_authenticated and current_user.is_guest %}
+        <div style="background: #2b6cb0; color: white; text-align: center; padding: 8px; font-weight: bold; font-size: 0.9em; margin-bottom: 15px; border-radius: 4px;">
+            Espace invité de {{ current_user.owner_username }} (Lecture seule)
+        </div>
+    {% endif %}
+
     <nav>
         {% if current_user.is_authenticated %}
-            <a href="{{ url_for('profile') }}" style="color: white; text-decoration: none; font-weight: bold; margin-right: 15px;">
-                {{ current_user.username }} 
-            </a>|
+            {% if not current_user.is_guest %}
+                <a href="{{ url_for('profile') }}" style="color: white; text-decoration: none; font-weight: bold; margin-right: 15px;">
+                    {{ current_user.username }} 
+                </a>|
+            {% else %}
+                <span style="color: #cbd5e0; font-weight: bold; margin-right: 15px;">
+                    Invité : {{ current_user.username }}
+                </span>|
+            {% endif %}
             <a href="{{ url_for('index') }}">Accueil</a> |
             <a href="{{ url_for('logout') }}">Déconnexion</a>
         {% else %}

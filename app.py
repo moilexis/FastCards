@@ -1,25 +1,11 @@
 import os
 import json
 import random
+from functools import wraps
 from flask import Flask, render_template, redirect, url_for, request, flash, jsonify, session, Response
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 import database as db
-from database import (
-    get_root_categories_by_user,
-    get_subcategories,
-    get_categories_by_user,
-    get_collections_by_category,
-    get_root_collections_by_user,
-    create_category,
-    create_collection,
-    delete_collection,
-    move_collection,
-    delete_category,
-    merge_collections,
-    invert_cards_in_collection,
-    get_db_connection
-)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'cle_dev_temp_12345')
@@ -34,6 +20,19 @@ class User(UserMixin):
     def __init__(self, user_row):
         self.id = user_row['id']
         self.username = user_row['username']
+        self.is_guest = bool(user_row['is_guest']) if 'is_guest' in user_row.keys() and user_row['is_guest'] else False
+        self.parent_user_id = user_row['parent_user_id'] if 'parent_user_id' in user_row.keys() else None
+
+    @property
+    def owner_id(self):
+        return self.parent_user_id if self.is_guest else self.id
+
+    @property
+    def owner_username(self):
+        if self.is_guest and self.parent_user_id:
+            parent = db.get_user_by_id(self.parent_user_id)
+            return parent['username'] if parent else "le propriétaire"
+        return self.username
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -41,6 +40,15 @@ def load_user(user_id):
     if user_row:
         return User(user_row)
     return None
+
+def guest_forbidden(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.is_authenticated and current_user.is_guest:
+            flash("Action non autorisée en mode invité.", "danger")
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # --- ROUTES AUTHENTIFICATION ---
 
@@ -89,14 +97,19 @@ def logout():
 
 # --- LOGIQUE DE L'ARBORESCENCE ---
 
-def build_category_tree(category_id, user_id):
-    sub_cats = get_subcategories(category_id, user_id)
+def build_category_tree(category_id, user_id, is_guest=False):
+    sub_cats = db.get_subcategories(category_id, user_id)
     sub_tree = []
     
     for sub in sub_cats:
+        if is_guest and sub['is_hidden_from_guest']:
+            continue
         sub_dict = dict(sub)
-        sub_dict['collections'] = get_collections_by_category(sub['id'])
-        sub_dict['subcategories'] = build_category_tree(sub['id'], user_id)
+        cols = db.get_collections_by_category(sub['id'])
+        if is_guest:
+            cols = [c for c in cols if not c['is_hidden_from_guest']]
+        sub_dict['collections'] = cols
+        sub_dict['subcategories'] = build_category_tree(sub['id'], user_id, is_guest)
         sub_tree.append(sub_dict)
         
     return sub_tree
@@ -123,22 +136,32 @@ def get_category_full_path(category_id, user_id):
 @app.route('/')
 @login_required
 def index():
-    user_id = current_user.id
+    user_id = current_user.owner_id
+    is_guest = current_user.is_guest
 
-    root_categories = get_root_categories_by_user(user_id)
+    root_categories = db.get_root_categories_by_user(user_id)
     tree = []
     for cat in root_categories:
+        if is_guest and cat['is_hidden_from_guest']:
+            continue
         cat_dict = dict(cat)
-        cat_dict['collections'] = [dict(c) for c in get_collections_by_category(cat['id'])]
-        cat_dict['subcategories'] = build_category_tree(cat['id'], user_id)
+        cols = db.get_collections_by_category(cat['id'])
+        if is_guest:
+            cols = [c for c in cols if not c['is_hidden_from_guest']]
+        cat_dict['collections'] = [dict(c) for c in cols]
+        cat_dict['subcategories'] = build_category_tree(cat['id'], user_id, is_guest)
         tree.append(cat_dict)
 
-    raw_root_cols = get_root_collections_by_user(user_id)
+    raw_root_cols = db.get_root_collections_by_user(user_id)
+    if is_guest:
+        raw_root_cols = [c for c in raw_root_cols if not c['is_hidden_from_guest']]
     root_collections = [dict(c) for c in raw_root_cols]
 
-    raw_categories = get_categories_by_user(user_id)
+    raw_categories = db.get_categories_by_user(user_id)
     formatted_categories = []
     for cat in raw_categories:
+        if is_guest and cat['is_hidden_from_guest']:
+            continue
         formatted_categories.append({
             'id': cat['id'],
             'full_path': get_category_full_path(cat['id'], user_id)
@@ -149,7 +172,7 @@ def index():
     with db.get_db_connection() as conn:
         all_user_collections = conn.execute(
             "SELECT id, name FROM collections WHERE user_id = ?",
-            (current_user.id,)
+            (user_id,)
         ).fetchall()
 
     for col in root_collections:
@@ -181,37 +204,41 @@ def index():
 
 @app.route('/create_category', methods=['POST'])
 @login_required
+@guest_forbidden
 def handle_create_category():
     user_id = current_user.id
     name = request.form.get('name')
     parent_id = request.form.get('parent_id')
     
     if name and name.strip():
-        create_category(user_id, name, parent_id)
+        db.create_category(user_id, name, parent_id)
         
     return redirect(url_for('index'))
 
 @app.route('/create_collection', methods=['POST'])
 @login_required
+@guest_forbidden
 def create_collection_route():
     user_id = current_user.id
     name = request.form.get('name')
     category_id = request.form.get('category_id')
     
     if name and name.strip():
-        create_collection(user_id, category_id, name)
+        db.create_collection(user_id, category_id, name)
         
     return redirect(url_for('index'))
 
 @app.route('/collection/<int:collection_id>', methods=['GET', 'POST'])
 @login_required
 def view_collection(collection_id):
-    collection = db.get_collection_details(collection_id, current_user.id)
-    if not collection:
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
+    
+    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
         flash("Collection introuvable ou accès refusé.", "danger")
         return redirect(url_for('index'))
         
-    if request.method == 'POST':
+    if request.method == 'POST' and not current_user.is_guest:
         action = request.form.get('action')
         
         if action == 'bulk_import':
@@ -231,12 +258,12 @@ def view_collection(collection_id):
             
         elif action == 'toggle_difficult':
             card_id = request.form.get('card_id')
-            db.toggle_card_difficulty(int(card_id), current_user.id)
+            db.toggle_card_difficulty(int(card_id), user_id)
             return redirect(url_for('view_collection', collection_id=collection_id))
             
         elif action == 'delete_card':
             card_id = request.form.get('card_id')
-            db.delete_card(int(card_id), current_user.id)
+            db.delete_card(int(card_id), user_id)
             flash("Carte supprimée.", "success")
             return redirect(url_for('view_collection', collection_id=collection_id))
 
@@ -244,20 +271,19 @@ def view_collection(collection_id):
     stats = get_collection_stats(collection_id)
 
     with db.get_db_connection() as conn:
-        with db.get_db_connection() as conn:
-            last_session = conn.execute('''
-                SELECT 
-                    strftime('%d/%m/%Y', created_at, 'localtime') AS date_formatted,
-                    strftime('%H:%M', created_at, 'localtime') AS time_formatted
-                FROM study_sessions 
-                WHERE collection_id = ? 
-                ORDER BY created_at DESC LIMIT 1
-            ''', (collection_id,)).fetchone()
+        last_session = conn.execute('''
+            SELECT 
+                strftime('%d/%m/%Y', created_at, 'localtime') AS date_formatted,
+                strftime('%H:%M', created_at, 'localtime') AS time_formatted
+            FROM study_sessions 
+            WHERE collection_id = ? 
+            ORDER BY created_at DESC LIMIT 1
+        ''', (collection_id,)).fetchone()
 
-            last_reviewed_date = last_session['date_formatted'] if last_session else None
-            last_reviewed_time = last_session['time_formatted'] if last_session else None
+        last_reviewed_date = last_session['date_formatted'] if last_session else None
+        last_reviewed_time = last_session['time_formatted'] if last_session else None
 
-        user_row = conn.execute('SELECT favorite_modes FROM users WHERE id = ?', (current_user.id,)).fetchone()
+        user_row = conn.execute('SELECT favorite_modes FROM users WHERE id = ?', (user_id,)).fetchone()
 
     user_favs = ['fc_not_validated', 'fc_difficult']
     if user_row and user_row['favorite_modes']:
@@ -267,17 +293,18 @@ def view_collection(collection_id):
             pass
 
     return render_template(
-    'collection.html', 
-    collection=collection, 
-    cards=cards, 
-    stats=stats,
-    last_reviewed_date=last_reviewed_date,
-    last_reviewed_time=last_reviewed_time,
-    user_favs=user_favs
+        'collection.html', 
+        collection=collection, 
+        cards=cards, 
+        stats=stats,
+        last_reviewed_date=last_reviewed_date,
+        last_reviewed_time=last_reviewed_time,
+        user_favs=user_favs
     )
 
 @app.route('/collection/<int:collection_id>/reset', methods=['POST'])
 @login_required
+@guest_forbidden
 def reset_collection_progress(collection_id):
     db.reset_collection_progress(collection_id)
     flash("Progression réinitialisée avec succès.", "info")
@@ -286,22 +313,22 @@ def reset_collection_progress(collection_id):
 @app.route('/collection/<int:collection_id>/review/<mode>')
 @login_required
 def start_review(collection_id, mode):
-    collection = db.get_collection_details(collection_id, current_user.id)
-    if not collection:
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
+    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
         flash("Collection introuvable ou accès refusé.", "danger")
         return redirect(url_for('index'))
 
-    # Redirection vers la route dédiée au mode difficile
     if mode == 'difficult':
         return redirect(url_for('review_difficult_mode', collection_id=collection_id))
     if mode == 'write':
         return redirect(url_for('review_write_mode', collection_id=collection_id))
+    
     all_cards = db.get_cards_by_collection(collection_id)
 
-    # Filtrage selon le mode
     if mode == 'not_validated':
         cards_to_review = [c for c in all_cards if c['is_known'] == 0]
-    else:  # Mode 'all' par défaut
+    else:
         cards_to_review = list(all_cards)
 
     if not cards_to_review:
@@ -316,16 +343,15 @@ def start_review(collection_id, mode):
 
     return redirect(url_for('render_review_card', collection_id=collection_id))
 
-
 @app.route('/collection/<int:collection_id>/review/difficult')
 @login_required
 def review_difficult_mode(collection_id):
-    collection = db.get_collection_details(collection_id, current_user.id)
-    if not collection:
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
+    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
         flash("Collection introuvable.", "danger")
         return redirect(url_for('index'))
 
-    # Vérification rapide s'il y a des cartes difficiles
     all_cards = db.get_cards_by_collection(collection_id)
     difficult_cards = [c for c in all_cards if c['is_difficult'] == 1]
 
@@ -338,15 +364,16 @@ def review_difficult_mode(collection_id):
 @app.route('/collection/<int:collection_id>/review/write')
 @login_required
 def review_write_mode(collection_id):
-    collection = db.get_collection_details(collection_id, current_user.id)
-    if not collection:
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
+    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
         flash("Collection introuvable.", "danger")
         return redirect(url_for('index'))
 
     return render_template('review_write.html', collection=collection)
 
-
 @app.route('/collection/<int:collection_id>/data')
+@login_required
 def get_collection_cards(collection_id):
     with db.get_db_connection() as conn:
         rows = conn.execute('SELECT id, question, answer, is_known, is_difficult FROM cards WHERE collection_id = ?', (collection_id,)).fetchall()
@@ -364,14 +391,20 @@ def get_collection_cards(collection_id):
     return jsonify({'cards': cards_data})
 
 @app.route('/card/<int:card_id>/toggle_difficult', methods=['POST'])
+@login_required
 def toggle_card_difficult(card_id):
+    if current_user.is_guest:
+        return jsonify({'status': 'ignored_guest'})
     with db.get_db_connection() as conn:
         conn.execute('UPDATE cards SET is_difficult = CASE WHEN is_difficult = 1 THEN 0 ELSE 1 END WHERE id = ?', (card_id,))
         conn.commit()
     return jsonify({'status': 'ok'})
 
 @app.route('/card/<int:card_id>/answer', methods=['POST'])
+@login_required
 def answer_card(card_id):
+    if current_user.is_guest:
+        return jsonify({'status': 'ignored_guest'})
     data = request.get_json() or {}
     knows = data.get('knows', 0)
     
@@ -381,14 +414,19 @@ def answer_card(card_id):
     return jsonify({'status': 'ok'})
 
 @app.route('/collection/<int:collection_id>/invert', methods=['POST'])
+@login_required
 def invert_collection(collection_id):
-    invert_cards_in_collection(collection_id)
+    if current_user.is_guest:
+        flash("Accès limité : L'inversion permanente en base n'est pas autorisée en mode invité.", "info")
+        return redirect(url_for('view_collection', collection_id=collection_id))
+    db.invert_cards_in_collection(collection_id)
     return redirect(url_for('view_collection', collection_id=collection_id))
 
 @app.route('/collection/<int:collection_id>/review/card', methods=['GET', 'POST'])
 @login_required
 def render_review_card(collection_id):
-    collection = db.get_collection_details(collection_id, current_user.id)
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
     card_ids = session.get('review_cards', [])
     index = session.get('review_index', 0)
     
@@ -403,12 +441,13 @@ def render_review_card(collection_id):
         user_knows = request.form.get('knows')
         action = request.form.get('action')
         
-        if action == 'toggle_difficult_review':
-            db.toggle_card_difficulty(current_card_id, current_user.id)
+        if action == 'toggle_difficult_review' and not current_user.is_guest:
+            db.toggle_card_difficulty(current_card_id, user_id)
             return redirect(url_for('render_review_card', collection_id=collection_id))
             
         if user_knows is not None:
-            db.update_card_knowledge(current_card_id, int(user_knows))
+            if not current_user.is_guest:
+                db.update_card_knowledge(current_card_id, int(user_knows))
             session['review_index'] = index + 1
             return redirect(url_for('render_review_card', collection_id=collection_id))
 
@@ -419,9 +458,10 @@ def render_review_card(collection_id):
 
 @app.route('/delete_category/<int:category_id>', methods=['POST'])
 @login_required
+@guest_forbidden
 def handle_delete_category(category_id):
     user_id = current_user.id
-    success = delete_category(category_id, user_id)
+    success = db.delete_category(category_id, user_id)
     
     if success:
         flash("Dossier supprimé avec succès.", "success")
@@ -432,31 +472,34 @@ def handle_delete_category(category_id):
 
 @app.route('/delete_collection/<int:collection_id>', methods=['POST'])
 @login_required
+@guest_forbidden
 def handle_delete_collection(collection_id):
     user_id = current_user.id
-    delete_collection(collection_id, user_id)
+    db.delete_collection(collection_id, user_id)
     flash("Collection supprimée.", "success")
     return redirect(url_for('index'))
 
 @app.route('/move_collection/<int:collection_id>', methods=['POST'])
 @login_required
+@guest_forbidden
 def handle_move_collection(collection_id):
     user_id = current_user.id
     new_category_id = request.form.get('category_id')
     
-    move_collection(collection_id, new_category_id, user_id)
+    db.move_collection(collection_id, new_category_id, user_id)
     flash("Collection déplacée avec succès.", "success")
     return redirect(url_for('index'))
 
 @app.route('/merge_collections/<int:collection_id>', methods=['POST'])
 @login_required
+@guest_forbidden
 def handle_merge_collections(collection_id):
     user_id = current_user.id
     target_col_id = request.form.get('target_collection_id')
     new_name = request.form.get('new_name')
     
     if target_col_id and new_name and new_name.strip():
-        new_col_id = merge_collections(user_id, collection_id, int(target_col_id), new_name)
+        new_col_id = db.merge_collections(user_id, collection_id, int(target_col_id), new_name)
         if new_col_id:
             flash("Collections fusionnées avec succès !", "success")
         else:
@@ -465,6 +508,22 @@ def handle_merge_collections(collection_id):
         flash("Veuillez remplir tous les champs pour la fusion.", "warning")
         
     return redirect(url_for('index'))
+
+@app.route('/category/<int:category_id>/toggle_guest', methods=['POST'])
+@login_required
+@guest_forbidden
+def toggle_category_guest(category_id):
+    db.toggle_category_guest_visibility(category_id, current_user.id)
+    flash("Visibilité invité modifiée pour ce dossier.", "info")
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/collection/<int:collection_id>/toggle_guest', methods=['POST'])
+@login_required
+@guest_forbidden
+def toggle_collection_guest(collection_id):
+    db.toggle_collection_guest_visibility(collection_id, current_user.id)
+    flash("Visibilité invité modifiée pour cette collection.", "info")
+    return redirect(request.referrer or url_for('index'))
 
 # --- STATS ---
 
@@ -499,6 +558,8 @@ def get_category_stats(category_id):
     return {'total': total, 'known': known, 'percent': percent}
 
 @app.route('/card/<int:card_id>/edit', methods=['POST'])
+@login_required
+@guest_forbidden
 def edit_card_route(card_id):
     data = request.get_json() or {}
     question = data.get('question')
@@ -513,6 +574,9 @@ def edit_card_route(card_id):
 @app.route('/api/study_session', methods=['POST'])
 @login_required
 def save_study_session():
+    if current_user.is_guest:
+        return jsonify({'status': 'success', 'message': 'Guest session ignored'}), 200
+
     data = request.get_json(force=True)
     if not data:
         return jsonify({'status': 'error', 'message': 'No data provided'}), 400
@@ -544,17 +608,17 @@ def update_user_favorites():
     favs_json = json.dumps(favorites)
 
     with db.get_db_connection() as conn:
-        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (favs_json, current_user.id))
+        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (favs_json, current_user.owner_id))
         conn.commit()
 
     return jsonify({'status': 'ok'}), 200
 
-from werkzeug.security import generate_password_hash, check_password_hash
-
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
+@guest_forbidden
 def profile():
     user_row = db.get_user_by_id(current_user.id)
+    guest_account = db.get_guest_account_by_parent(current_user.id)
     
     if request.method == 'POST':
         action = request.form.get('action')
@@ -565,13 +629,11 @@ def profile():
             new_password = request.form.get('new_password', '')
             confirm_password = request.form.get('confirm_password', '')
 
-            # Vérification du mot de passe actuel
             if not check_password_hash(user_row['password_hash'], old_password):
                 flash("Ancien mot de passe incorrect.", "danger")
             elif not new_username:
                 flash("Le nom d'utilisateur ne peut pas être vide.", "danger")
             else:
-                # Changement de mot de passe facultatif
                 new_hash = None
                 if new_password or confirm_password:
                     if new_password != confirm_password:
@@ -579,7 +641,6 @@ def profile():
                         return redirect(url_for('profile'))
                     new_hash = generate_password_hash(new_password)
 
-                # Mise à jour via database.py qui renvoie True ou False
                 success = db.update_user_profile(current_user.id, new_username, new_hash)
                 
                 if success:
@@ -588,7 +649,22 @@ def profile():
                 else:
                     flash("Ce nom d'utilisateur est déjà utilisé.", "danger")
 
-    # Récupération et formatage des statistiques
+        elif action == 'save_guest':
+            guest_user = request.form.get('guest_username', '').strip()
+            guest_pass = request.form.get('guest_password', '').strip()
+
+            if not guest_user or not guest_pass:
+                flash("L'identifiant et le mot de passe invité sont requis.", "danger")
+            else:
+                db.create_or_update_guest_account(current_user.id, guest_user, generate_password_hash(guest_pass))
+                flash("Identifiants invités mis à jour !", "success")
+                return redirect(url_for('profile'))
+
+        elif action == 'delete_guest':
+            db.delete_guest_account(current_user.id)
+            flash("L'accès invité a été supprimé.", "info")
+            return redirect(url_for('profile'))
+
     stats = db.get_user_stats(current_user.id)
     
     MODE_LABELS = {
@@ -602,25 +678,22 @@ def profile():
     sessions_formatted = []
     for s in stats['today_sessions']:
         session_dict = dict(s)
-        
-        # Construction de l'arborescence
         if session_dict['category_id']:
             cat_path = get_category_full_path(session_dict['category_id'], current_user.id)
             session_dict['full_path'] = f"{cat_path} / {session_dict['collection_name']}"
         else:
             session_dict['full_path'] = session_dict['collection_name']
             
-        # Label lisible du mode
         session_dict['mode_label'] = MODE_LABELS.get(session_dict['mode'], session_dict['mode'])
-        
         sessions_formatted.append(session_dict)
     
     stats['today_sessions'] = sessions_formatted
 
-    return render_template('profile.html', user=user_row, stats=stats)
+    return render_template('profile.html', user=user_row, guest_account=guest_account, stats=stats)
 
 @app.route('/category/<int:category_id>/rename', methods=['POST'])
 @login_required
+@guest_forbidden
 def rename_category(category_id):
     new_name = request.form.get('name', '').strip()
     if new_name:
@@ -632,6 +705,7 @@ def rename_category(category_id):
 
 @app.route('/collection/<int:collection_id>/rename', methods=['POST'])
 @login_required
+@guest_forbidden
 def rename_collection(collection_id):
     new_name = request.form.get('name', '').strip()
     if new_name:
@@ -644,15 +718,14 @@ def rename_collection(collection_id):
 @app.route('/collection/<int:collection_id>/export/txt')
 @login_required
 def export_collection_txt(collection_id):
-    collection = db.get_collection_details(collection_id, current_user.id)
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
     
-    if not collection:
+    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
         flash("Collection introuvable.", "danger")
         return redirect(url_for('index'))
 
     cards = db.get_cards_by_collection(collection_id)
-
-    # Formatage : question ; answer
     lines = [f"{card['question']} ; {card['answer']}" for card in cards]
     content = "\n".join(lines)
     
@@ -663,19 +736,17 @@ def export_collection_txt(collection_id):
         mimetype="text/plain",
         headers={"Content-disposition": f"attachment; filename={filename}"}
     )
-# ROUTE DEBUG / RESET
+
 @app.route('/reset_my_favorites')
 @login_required
 def reset_my_favorites():
     default_favs = json.dumps(['fc_not_validated', 'fc_difficult'])
-    
     with db.get_db_connection() as conn:
-        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (default_favs, current_user.id))
+        conn.execute('UPDATE users SET favorite_modes = ? WHERE id = ?', (default_favs, current_user.owner_id))
         conn.commit()
     
     flash("Favoris réinitialisés avec succès !", "success")
     return redirect(url_for('index'))
-
 
 if __name__ == '__main__':
     app.run(debug=True)

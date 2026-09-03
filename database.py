@@ -70,7 +70,8 @@ def init_db():
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
             )
         ''')
-
+        upgrade_db_for_guest()
+        
         try:
             cursor.execute("ALTER TABLE users ADD COLUMN favorite_modes TEXT DEFAULT '[\"fc_not_validated\", \"fc_difficult\"]'")
         except Exception:
@@ -413,4 +414,63 @@ def update_collection_name(collection_id, user_id, new_name):
             "UPDATE collections SET name = ? WHERE id = ? AND user_id = ?",
             (new_name, collection_id, user_id)
         )
+        conn.commit()
+
+def get_guest_account_by_parent(parent_id):
+    with get_db_connection() as conn:
+        return conn.execute("SELECT * FROM users WHERE parent_user_id = ? AND is_guest = 1", (parent_id,)).fetchone()
+
+def create_or_update_guest_account(parent_id, username, password_hash):
+    existing = get_guest_account_by_parent(parent_id)
+    with get_db_connection() as conn:
+        if existing:
+            conn.execute("UPDATE users SET username = ?, password_hash = ? WHERE id = ?", 
+                         (username, password_hash, existing['id']))
+        else:
+            conn.execute("INSERT INTO users (username, password_hash, is_guest, parent_user_id) VALUES (?, ?, 1, ?)", 
+                         (username, password_hash, parent_id))
+        conn.commit()
+
+def delete_guest_account(parent_id):
+    with get_db_connection() as conn:
+        conn.execute("DELETE FROM users WHERE parent_user_id = ? AND is_guest = 1", (parent_id,))
+        conn.commit()
+
+def toggle_category_guest_visibility(category_id, user_id):
+    with get_db_connection() as conn:
+        conn.execute("UPDATE categories SET is_hidden_from_guest = CASE WHEN is_hidden_from_guest = 1 THEN 0 ELSE 1 END WHERE id = ? AND user_id = ?", (category_id, user_id))
+        conn.commit()
+
+def toggle_collection_guest_visibility(collection_id, user_id):
+    with get_db_connection() as conn:
+        conn.execute("UPDATE collections SET is_hidden_from_guest = CASE WHEN is_hidden_from_guest = 1 THEN 0 ELSE 1 END WHERE id = ? AND user_id = ?", (collection_id, user_id))
+        conn.commit()
+
+##########################
+# UPGRADE DE LA DATABASE #
+##########################
+def upgrade_db_for_guest():
+    with get_db_connection() as conn:
+        # Ajout des champs guest aux utilisateurs
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN parent_user_id INTEGER DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass
+
+        # Masquage invité sur les catégories et collections
+        try:
+            conn.execute("ALTER TABLE categories ADD COLUMN is_hidden_from_guest INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            conn.execute("ALTER TABLE collections ADD COLUMN is_hidden_from_guest INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
         conn.commit()
