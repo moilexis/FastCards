@@ -11,7 +11,7 @@
     <h2 style="margin-bottom: 25px;">MODE ÉCRITURE - {{ collection.name }}</h2>
 
     <!-- CARTE PRINCIPALE -->
-     <button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
+     <button type="button" id="btn-prev-card" onclick="prevCard(event)" style="display: none;">
          	&lt;
     </button>
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 220px; 
@@ -107,7 +107,22 @@ function renderCard() {
         return;
     }
 
-    // Gestion de l'affichage du bouton retour (caché à la 1ère carte)
+    // --- CORRECTION : Réinitialisation de l'état pour la nouvelle carte ---
+    isAnswered = false;
+    readyForNext = false;
+
+    // Réafficher le formulaire de saisie et masquer le feedback précédent
+    document.getElementById("write-form").style.display = "flex";
+    document.getElementById("feedback-box").style.display = "none";
+    document.getElementById("expected-answer").style.display = "none";
+    
+    // Vider l'input et remettre le focus dessus
+    const inputEl = document.getElementById("user-input");
+    inputEl.value = "";
+    setTimeout(() => inputEl.focus(), 50);
+    // --------------------------------------------------------------------
+
+    // Gestion du bouton retour
     const prevBtn = document.getElementById('btn-prev-card');
     if (prevBtn) {
         prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
@@ -115,18 +130,25 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Ton code habituel de rendu de la carte...
+    // Affichage de la question et de la révision
     document.getElementById("recto-text").innerText = card.question;
-    
-    // Mise à jour de la progression
+    document.getElementById("expected-answer").innerText = card.answer;
+
+    // Étoile de difficulté
+    const starBtn = document.getElementById("star-btn");
+    if (starBtn) {
+        starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    }
+
+    // Progression
     const progressEl = document.getElementById("progress-text");
     if (progressEl) {
         progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;
     }
 }
 
-// fonction pour revenir en arrière
-function prevCard() {
+function prevCard(e) {
+    if (e) e.stopPropagation();
     if (currentIndex > 0) {
         currentIndex--;
         renderCard();
