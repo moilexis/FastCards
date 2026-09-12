@@ -54,18 +54,30 @@ let cardsViewed = 0;
 let cardsSuccess = 0;
 let sessionSaved = false;
 
-// Chargement automatique au démarrage
+const reviewSource = "{{ source }}";
+
 document.addEventListener("DOMContentLoaded", function() {
     fetch('/collection/{{ collection.id }}/data')
         .then(res => res.json())
         .then(data => {
-            let unmasteredCards = data.cards.filter(card => card.is_known !== 1);
-            cards = unmasteredCards.sort(() => Math.random() - 0.5);
+            let allCards = data.cards;
+
+            // Filtrage selon la source choisie
+            if (reviewSource === 'not_validated') {
+                cards = allCards.filter(c => c.is_known !== 1);
+            } else if (reviewSource === 'difficult') {
+                cards = allCards.filter(c => c.is_difficult === 1);
+            } else {
+                cards = allCards; // 'all'
+            }
+
+            // Mélange des cartes retenues
+            cards.sort(() => Math.random() - 0.5);
 
             if (cards.length > 0) {
                 renderCard();
             } else {
-                document.getElementById('recto-text').innerText = "Toutes les cartes sont validées ! 🎉";
+                document.getElementById('recto-text').innerText = "Aucune carte ne correspond à ce critère ! 🎉";
                 document.getElementById('hint').style.display = 'none';
             }
         });

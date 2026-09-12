@@ -309,69 +309,41 @@ def reset_collection_progress(collection_id):
     db.reset_collection_progress(collection_id)
     flash("Progression réinitialisée avec succès.", "info")
     return redirect(url_for('view_collection', collection_id=collection_id))
-
-@app.route('/collection/<int:collection_id>/review/<mode>')
+# 1. Page de sélection de la source (Filtres)
+@app.route('/collection/<int:collection_id>/review/<mode>/select')
 @login_required
-def start_review(collection_id, mode):
+def select_review_source(collection_id, mode):
     user_id = current_user.owner_id
     collection = db.get_collection_details(collection_id, user_id)
-    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
-        flash("Collection introuvable ou accès refusé.", "danger")
+    if not collection:
+        flash("Collection introuvable.", "danger")
         return redirect(url_for('index'))
-
-    if mode == 'difficult':
-        return redirect(url_for('review_difficult_mode', collection_id=collection_id))
-    if mode == 'write':
-        return redirect(url_for('review_write_mode', collection_id=collection_id))
     
-    all_cards = db.get_cards_by_collection(collection_id)
+    return render_template('select_source.html', collection=collection, mode=mode)
 
-    if mode == 'not_validated':
-        cards_to_review = [c for c in all_cards if c['is_known'] == 0]
+# 2. Lancement du mode de révision
+@app.route('/collection/<int:collection_id>/review/<mode>/start')
+@login_required
+def start_review_session(collection_id, mode):
+    user_id = current_user.owner_id
+    collection = db.get_collection_details(collection_id, user_id)
+    if not collection:
+        flash("Collection introuvable.", "danger")
+        return redirect(url_for('index'))
+    
+    # Appel de la fonction native de app.py
+    stats = get_collection_stats(collection_id)
+    source = request.args.get('source', 'not_validated')
+    
+    if mode == 'flashcards':
+        return render_template('review_flashcards.html', collection=collection, source=source, progress=(1, stats['total']))
+    elif mode == 'write':
+        return render_template('review_write.html', collection=collection, source=source, progress=(1, stats['total']))
     else:
-        cards_to_review = list(all_cards)
-
-    if not cards_to_review:
-        flash("Aucune carte à réviser dans ce mode !", "warning")
+        flash("Mode inconnu.", "warning")
         return redirect(url_for('view_collection', collection_id=collection_id))
 
-    cards_list = [dict(c) for c in cards_to_review]
-    random.shuffle(cards_list)
-
-    session['review_cards'] = [c['id'] for c in cards_list]
-    session['review_index'] = 0
-
-    return redirect(url_for('render_review_card', collection_id=collection_id))
-
-@app.route('/collection/<int:collection_id>/review/difficult')
-@login_required
-def review_difficult_mode(collection_id):
-    user_id = current_user.owner_id
-    collection = db.get_collection_details(collection_id, user_id)
-    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
-        flash("Collection introuvable.", "danger")
-        return redirect(url_for('index'))
-
-    all_cards = db.get_cards_by_collection(collection_id)
-    difficult_cards = [c for c in all_cards if c['is_difficult'] == 1]
-
-    if not difficult_cards:
-        flash("Aucune carte marquée comme difficile dans cette collection !", "warning")
-        return redirect(url_for('view_collection', collection_id=collection_id))
-
-    return render_template('review_difficult.html', collection=collection)
-
-@app.route('/collection/<int:collection_id>/review/write')
-@login_required
-def review_write_mode(collection_id):
-    user_id = current_user.owner_id
-    collection = db.get_collection_details(collection_id, user_id)
-    if not collection or (current_user.is_guest and collection['is_hidden_from_guest']):
-        flash("Collection introuvable.", "danger")
-        return redirect(url_for('index'))
-
-    return render_template('review_write.html', collection=collection)
-
+    
 @app.route('/collection/<int:collection_id>/data')
 @login_required
 def get_collection_cards(collection_id):

@@ -154,27 +154,19 @@
     <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Favoris</span>
     <div id="favorites-container" class="modes-grid"></div>
 
-    <div id="all-modes-container" style="display: none; margin-top: 15px;">
-        <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase;">Flashcards</span>
-        <div class="modes-grid">
-            <div class="mode-card" style="background-color: #38a169; border-color: #2f855a;">
-                <a href="{{ url_for('start_review', collection_id=collection.id, mode='not_validated') }}" style="color:inherit; text-decoration:none; flex:1;">Non-validées</a>
-                <button class="fav-heart" data-mode="fc_not_validated" onclick="toggleFav('fc_not_validated')">&#10084;</button>
-            </div>
-            <div class="mode-card" style="background-color: #dd6b20; border-color: #c05621;">
-                <a href="{{ url_for('start_review', collection_id=collection.id, mode='difficult') }}" style="color:inherit; text-decoration:none; flex:1;">Difficiles ★</a>
-                <button class="fav-heart" data-mode="fc_difficult" onclick="toggleFav('fc_difficult')">&#10084;</button>
-            </div>
-        </div>
+    <div style="display: flex; gap: 15px; margin-top: 20px;">
+    <!-- Bouton Mode Flashcards -->
+    <a href="{{ url_for('select_review_source', collection_id=collection.id, mode='flashcards') }}" 
+       style="flex: 1; background: #3182ce; color: white; padding: 15px; text-align: center; border-radius: 12px; text-decoration: none; font-weight: bold;">
+         Flashcards
+    </a>
 
-        <span style="color: #a0aec0; font-size: 0.75em; font-weight: bold; text-transform: uppercase; display:block; margin-top:15px;">Saisie Clavier</span>
-        <div class="modes-grid">
-            <div class="mode-card" style="background-color: #38a169; border-color: #2f855a;">
-                <a href="{{ url_for('start_review', collection_id=collection.id, mode='write') }}" style="color:inherit; text-decoration:none; flex:1;">Écrire la réponse</a>
-                <button class="fav-heart" data-mode="write" onclick="toggleFav('write')">&#10084;</button>
-            </div>
-        </div>
-    </div>
+    <!-- Bouton Mode Saisie Clavier -->
+    <a href="{{ url_for('select_review_source', collection_id=collection.id, mode='write') }}" 
+       style="flex: 1; background: #805ad5; color: white; padding: 15px; text-align: center; border-radius: 12px; text-decoration: none; font-weight: bold;">
+         Saisie Clavier
+    </a>
+</div>
 
     <div class="toggle-divider" onclick="toggleDrawer()">
         <span id="toggle-label">AFFICHER PLUS ▼</span>

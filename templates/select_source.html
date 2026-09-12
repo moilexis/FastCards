@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<div style="max-width: 500px; margin: 40px auto; text-align: center;">
+    <h2>{{ collection.name }}</h2>
+    <p style="color: #a0aec0; margin-bottom: 30px;">Choisissez les cartes à réviser :</p>
+
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <a href="{{ url_for('start_review_session', collection_id=collection.id, mode=mode) }}?source=not_validated" 
+           style="background: #38a169; color: white; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Cartes non-validées
+        </a>
+
+        <a href="{{ url_for('start_review_session', collection_id=collection.id, mode=mode) }}?source=difficult" 
+           style="background: #dd6b20; color: white; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Cartes difficiles ★
+        </a>
+
+        <a href="{{ url_for('start_review_session', collection_id=collection.id, mode=mode) }}?source=all" 
+           style="background: #3182ce; color: white; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold;">
+            Toutes les cartes
+        </a>
+    </div>
+
+    <div style="margin-top: 25px;">
+        <a href="{{ url_for('view_collection', collection_id=collection.id) }}" style="color: #a0aec0; text-decoration: none;">← Annuler</a>
+    </div>
+</div>
+{% endblock %}
