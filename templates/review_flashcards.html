@@ -29,7 +29,7 @@
             <div id="recto-text" style="font-size: 1.2em; font-weight: bold; text-transform: uppercase; overflow: hidden;">
                 Chargement...
             </div>
-            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px; overflow: hidden;">
+            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 3px dashed #a6aeb8; padding-top: 15px; overflow: hidden;">
             </div>
             
             <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 30px; font-style: italic;">Retourne la carte en cliquant dessus</p>
@@ -96,7 +96,7 @@ function renderCard() {
         return;
     }
 
-    // Gestion de l'affichage du bouton retour (caché à la 1ère carte)
+    // Gestion du bouton retour
     const prevBtn = document.getElementById('btn-prev-card');
     if (prevBtn) {
         prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
@@ -104,10 +104,23 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Ton code habituel de rendu de la carte...
+    // Injection des données
     document.getElementById("recto-text").innerText = card.question;
     
-    // Mise à jour de la progression
+    const versoEl = document.getElementById("verso-text");
+    versoEl.innerText = card.answer || "(Pas de réponse)";
+    versoEl.style.display = "none"; // Masqué au départ
+    
+    const hintEl = document.getElementById("hint");
+    if (hintEl) hintEl.style.display = "block"; // Affiche l'indication "Cliquer pour retourner"
+    
+    // Statut étoile
+    const starBtn = document.getElementById("star-btn");
+    if (starBtn) {
+        starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+    }
+    
+    // Progression
     const progressEl = document.getElementById("progress-text");
     if (progressEl) {
         progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;

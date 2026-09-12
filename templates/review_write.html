@@ -1,58 +1,123 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="text-align: center; max-width: 600px; margin: 0 auto;" id="main-container">
+
+<style>
+/* Style du bouton Flèche Retour Fixe */
+#btn-prev-card {
+    position: fixed;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background-color: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 999;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#btn-prev-card svg {
+    width: 22px;
+    height: 22px;
+    stroke: #ffffff;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    margin-right: 2px;
+}
+
+#btn-prev-card:active {
+    transform: translateY(-50%) scale(0.92);
+    background-color: #3182ce;
+}
+
+/* Optimisation de la carte pour maximiser l'espace textuel */
+.flashcard-main-box {
+    background: #ffffff;
+    color: #1a202c;
+    border-radius: 25px;
+    padding: 25px 15px !important;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    margin: 0 auto 30px auto;
+    width: 96%;
+    max-width: 600px;
+}
+</style>
+
+<div style="text-align: center; max-width: 600px; margin: 0 auto;">
     
-    <!-- EN-TÊTE -->
+    <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #a0aec0;">
-        <span>Progression : <strong id="progress-text">1 / 1</strong></span>
+        <span>Progression : <strong id="progress-text">1 / {{ progress[1]|default(1) }}</strong></span>
         <a href="{{ url_for('view_collection', collection_id=collection.id) }}" onclick="saveSessionData()" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
     </div>
 
-    <h2 style="margin-bottom: 25px;">MODE ÉCRITURE - {{ collection.name }}</h2>
+    <h2 style="margin-bottom: 25px;">COLLECTION - {{ collection.name }}</h2>
 
-    <!-- CARTE PRINCIPALE -->
-     <button type="button" id="btn-prev-card" onclick="prevCard(event)" style="display: none;">
-         	&lt;
+    <!-- Bouton Flèche Retour sur le bord gauche -->
+    <button type="button" id="btn-prev-card" onclick="prevCard(event)" style="display: none;" aria-label="Carte précédente">
+        <svg viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
     </button>
-    <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 220px; 
-    display: flex; flex-direction: column; justify-content: center; position: relative; 
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 30px; margin-left: 10px; margin-right: 10px;">
+
+    <!-- CONTAINER GRANDE CARTE -->
+    <div class="flashcard-main-box">
         
-        <button id="star-btn" type="button" onclick="toggleDifficult(event)" style="position: absolute; top: 15px; left: 15px; background: none; border: none; font-size: 2em; cursor: pointer; color: #cbd5e0;">
+        <!-- Étoile Cliquable Difficile -->
+        <button id="star-btn" type="button" onclick="toggleDifficult(event)" style="position: absolute; top: 12px; left: 12px; background: none; border: none; font-size: 2em; cursor: pointer; color: #cbd5e0; transition: color 0.2s;" title="Marquer comme difficile">
             ★
         </button>
         
-        <div id="recto-text" style="font-size: 1.3em; font-weight: bold; text-transform: uppercase;">
-            Chargement...
-        </div>
-        
-        <!-- Réponse attendue (masquée au départ) -->
-        <div id="expected-answer" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px;">
+        <!-- Contenu textuel interactif -->
+        <div id="card-content" style="cursor: pointer; width: 100%;" onclick="toggleAnswer()">
+            <div id="recto-text" style="font-size: 1.3em; font-weight: bold; text-transform: uppercase; overflow-wrap: break-word; word-break: break-word;">
+                Chargement...
+            </div>
+            
+            <div id="verso-text" style="font-size: 1.15em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px; overflow-wrap: break-word; word-break: break-word;">
+            </div>
+            
+            <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 25px; font-style: italic;">Retourne la carte en cliquant dessus</p>
         </div>
     </div>
 
-    <!-- ZONE DE SAISIE OU DE RÉSULTAT -->
-    <div id="interactive-zone" style="margin-top: 20px;">
-        <!-- Formulaire de saisie -->
-        <form id="write-form" onsubmit="checkAnswer(event)" style="display: flex; gap: 10px;">
-            <input type="text" id="user-input" placeholder="..." autocomplete="off" style="flex: 1; padding: 18px 25px; border-radius: 20px; border: 2px solid #cbd5e0; font-size: 1.2em; text-align: center; outline: none; background: #edf2f7; color: #1a202c;">
-        </form>
+    <!-- BOUTONS DE SÉLECTION (JE SAIS PAS / JE SAIS) -->
+    <div style="display: flex; gap: 15px; margin-top: 20px;">
+        <button type="button" onclick="submitAnswer(0)" style="flex: 1; background: rgba(229, 62, 62, 0.1); border: 2px solid #e53e3e; color: #e53e3e; padding: 18px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+            Je sais pas
+        </button>
 
-        <!-- Bloc Feedback (masqué au départ) -->
-        <div id="feedback-box" style="display: none; padding: 20px; border-radius: 20px; font-size: 1.3em; font-weight: bold; color: #ffffff; text-align: center; cursor: pointer;">
-        </div>
+        <button type="button" onclick="submitAnswer(1)" style="flex: 1; background: rgba(56, 161, 105, 0.1); border: 2px solid #38a169; color: #38a169; padding: 18px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+            Je sais
+        </button>
     </div>
 </div>
 
 <script>
 let cards = [];
 let currentIndex = 0;
+
+// MESURE DES STATISTIQUES DE SESSION
 const startTime = Date.now();
 let cardsViewed = 0;
 let cardsSuccess = 0;
 let sessionSaved = false;
-let isAnswered = false;
-let readyForNext = false; // Sécurité pour éviter de passer immédiatement si l'utilisateur valides par Entrée
 
 const reviewSource = "{{ source }}";
 
@@ -78,24 +143,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 renderCard();
             } else {
                 document.getElementById('recto-text').innerText = "Aucune carte ne correspond à ce critère ! 🎉";
-                document.getElementById('interactive-zone').style.display = 'none';
+                document.getElementById('hint').style.display = 'none';
             }
         });
-
-    // Passer à la carte suivante au clic
-    document.addEventListener("click", function(e) {
-        if (readyForNext && e.target.id !== 'star-btn') {
-            nextCard();
-        }
-    });
-
-    // Passer à la carte suivante via n'importe quelle touche du clavier
-    document.addEventListener("keydown", function(e) {
-        if (readyForNext) {
-            e.preventDefault();
-            nextCard();
-        }
-    });
 });
 
 // Affiche la carte actuelle
@@ -107,22 +157,7 @@ function renderCard() {
         return;
     }
 
-    // --- CORRECTION : Réinitialisation de l'état pour la nouvelle carte ---
-    isAnswered = false;
-    readyForNext = false;
-
-    // Réafficher le formulaire de saisie et masquer le feedback précédent
-    document.getElementById("write-form").style.display = "flex";
-    document.getElementById("feedback-box").style.display = "none";
-    document.getElementById("expected-answer").style.display = "none";
-    
-    // Vider l'input et remettre le focus dessus
-    const inputEl = document.getElementById("user-input");
-    inputEl.value = "";
-    setTimeout(() => inputEl.focus(), 50);
-    // --------------------------------------------------------------------
-
-    // Gestion du bouton retour
+    // Gestion de l'affichage du bouton retour
     const prevBtn = document.getElementById('btn-prev-card');
     if (prevBtn) {
         prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
@@ -130,138 +165,90 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Affichage de la question et de la révision
+    // Contenu Recto / Verso
     document.getElementById("recto-text").innerText = card.question;
-    document.getElementById("expected-answer").innerText = card.answer;
-
-    // Étoile de difficulté
+    
+    const versoEl = document.getElementById("verso-text");
+    versoEl.innerText = card.answer;
+    versoEl.style.display = "none"; // Réinitialise le verso masqué
+    
+    document.getElementById("hint").style.display = "block"; // Réinitialise le hint
+    
+    // Statut de l'étoile
     const starBtn = document.getElementById("star-btn");
     if (starBtn) {
         starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
     }
-
-    // Progression
+    
+    // Mise à jour de la progression
     const progressEl = document.getElementById("progress-text");
     if (progressEl) {
         progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;
     }
 }
 
-function prevCard(e) {
-    if (e) e.stopPropagation();
+// Fonction pour revenir en arrière
+function prevCard(event) {
+    if (event) event.stopPropagation();
     if (currentIndex > 0) {
         currentIndex--;
         renderCard();
     }
 }
-defNormalize = (str) => {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-};
 
-function checkAnswer(event) {
-    event.preventDefault();
-    if (isAnswered) return;
-
-    const userInputRaw = document.getElementById("user-input").value.trim();
-    const expectedRaw = cards[currentIndex].answer;
-
-    // Découpage des alternatives séparées par |
-    const rawOptions = expectedRaw.split('|').map(s => s.trim());
-
-    // Génération des réponses autorisées (systématiquement nettoyées des parenthèses)
-    const possibleAnswers = [];
-    for (const opt of rawOptions) {
-    // Version nettoyée sans parenthèses (ex: "der König (E)" -> "der König")
-    const stripped = opt.replace(/\s*\([^)]*\)/g, '').trim();
-    if (stripped) possibleAnswers.push(stripped);
-    
-    // Garde l'option complète si l'utilisateur décide quand même de saisir les parenthèses
-    if (opt !== stripped) possibleAnswers.push(opt);
+// Afficher/Masquer la réponse
+function toggleAnswer() {
+    const verso = document.getElementById("verso-text");
+    const hint = document.getElementById("hint");
+    if (verso.style.display === "none") {
+        verso.style.display = "block";
+        hint.style.display = "none";
+    } else {
+        verso.style.display = "none";
+        hint.style.display = "block";
     }
-
-    let isCorrect = false;
-
-    // Test de la saisie utilisateur contre chaque option
-    for (const option of possibleAnswers) {
-        const userWords = userInputRaw.split(/\s+/).filter(Boolean);
-        const expectedWords = option.split(/\s+/).filter(Boolean);
-
-        if (userWords.length !== expectedWords.length) continue;
-
-        let match = true;
-        for (let i = 0; i < expectedWords.length; i++) {
-            const uWord = userWords[i].toLowerCase();
-            const eWord = expectedWords[i].toLowerCase();
-
-            const uWordNoAccents = defNormalize(uWord);
-            const eWordNoAccents = defNormalize(eWord);
-
-            if (uWord === uWordNoAccents) {
-                if (uWordNoAccents !== eWordNoAccents) {
-                    match = false;
-                    break;
-                }
-            } else {
-                if (uWord !== eWord) {
-                    match = false;
-                    break;
-                }
-            }
-        }
-
-        if (match) {
-            isCorrect = true;
-            break;
-        }
-    }
-
-    // Affichage des résultats & mise à jour BDD
-    cardsViewed++;
-    const card = cards[currentIndex];
-    
-    if (isCorrect) {
-        cardsSuccess++;
-        card.is_known = 1;
-        fetch(`/card/${card.id}/answer`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ knows: 1 })
-        });
-    }
-
-    document.getElementById("expected-answer").style.display = "block";
-    document.getElementById("write-form").style.display = "none";
-    
-    const feedback = document.getElementById("feedback-box");
-    feedback.style.display = "block";
-    feedback.innerText = userInputRaw || "(Aucune réponse)";
-    feedback.style.background = isCorrect ? "#84cc16" : "#ef4444";
-
-    isAnswered = true;
-    setTimeout(() => { readyForNext = true; }, 150);
 }
 
-function nextCard() {
+// Basculer l'état difficile (Étoile)
+function toggleDifficult(event) {
+    if (event) event.stopPropagation();
+    const card = cards[currentIndex];
+    card.is_difficult = card.is_difficult === 1 ? 0 : 1;
+    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
+
+    fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
+}
+
+// Enregistrer la réponse
+function submitAnswer(knows) {
+    if (cards.length === 0) return;
+    
+    // Incrémenter les compteurs de session
+    cardsViewed++;
+    if (knows === 1) cardsSuccess++;
+
+    const card = cards[currentIndex];
+    
+    fetch(`/card/${card.id}/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ knows: knows })
+    });
+
     currentIndex++;
     renderCard();
 }
 
-function toggleDifficult(e) {
-    e.stopPropagation();
-    const card = cards[currentIndex];
-    card.is_difficult = card.is_difficult === 1 ? 0 : 1;
-    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
-    fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
-}
-
+// Envoi asynchrone des données de session en BDD
 function saveSessionData() {
     if (sessionSaved) return;
+    
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
     if (cardsViewed === 0 || durationSeconds < 2) return;
 
     const payload = JSON.stringify({
         collection_id: parseInt("{{ collection.id }}"),
-        mode: "write",
+        mode: "flashcards normal",
         duration_seconds: durationSeconds,
         cards_viewed: cardsViewed,
         cards_success: cardsSuccess
@@ -271,6 +258,7 @@ function saveSessionData() {
     sessionSaved = true;
 }
 
+// Sauvegarde automatique lors du changement ou de la fermeture de page
 window.addEventListener('beforeunload', saveSessionData);
 </script>
 {% endblock %}
