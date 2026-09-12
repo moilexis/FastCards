@@ -18,7 +18,7 @@
             Espace invité de {{ current_user.owner_username }} (Lecture seule)
         </div>
     {% endif %}
-
+    {% if not hide_navbar %}
     <nav>
         {% if current_user.is_authenticated %}
             {% if not current_user.is_guest %}
@@ -37,6 +37,7 @@
             <a href="{{ url_for('register') }}">Inscription</a>
         {% endif %}
     </nav>
+    {% endif %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}

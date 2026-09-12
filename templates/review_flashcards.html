@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <div style="text-align: center; max-width: 600px; margin: 0 auto;">
     
     <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
@@ -9,7 +10,10 @@
     </div>
 
     <h2 style="margin-bottom: 25px;">COLLECTION - {{collection.name}}</h2>
-
+    <!-- Bouton Flèche Retour sur le bord gauche -->
+<button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
+     	&lt;
+</button>
     <!-- CONTAINER GRANDE CARTE -->
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
     display: flex; flex-direction: column; justify-content: center; position: relative; 
@@ -92,17 +96,30 @@ function renderCard() {
         return;
     }
 
+    // Gestion de l'affichage du bouton retour (caché à la 1ère carte)
+    const prevBtn = document.getElementById('btn-prev-card');
+    if (prevBtn) {
+        prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
+    }
+
     const card = cards[currentIndex];
     
+    // Ton code habituel de rendu de la carte...
     document.getElementById("recto-text").innerText = card.question;
-    document.getElementById("verso-text").innerText = card.answer;
-    document.getElementById("verso-text").style.display = "none";
-    document.getElementById("hint").style.display = "block";
     
-    const starBtn = document.getElementById("star-btn");
-    starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
-    
-    document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
+    // Mise à jour de la progression
+    const progressEl = document.getElementById("progress-text");
+    if (progressEl) {
+        progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;
+    }
+}
+
+// fonction pour revenir en arrière
+function prevCard() {
+    if (currentIndex > 0) {
+        currentIndex--;
+        renderCard();
+    }
 }
 
 // Afficher/Masquer la réponse

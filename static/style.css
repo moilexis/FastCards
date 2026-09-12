@@ -127,3 +127,78 @@ aside {
     border-radius: 4px;
     margin-bottom: 20px;
 }
+
+#btn-prev-card {
+    position: fixed;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    
+    z-index: 999;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#btn-prev-card svg {
+    width: 20px;
+    height: 20px;
+    stroke: #ffffff;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    /* Petit décalage optique vers la gauche si besoin */
+    margin-right: 2px; 
+}
+
+#btn-prev-card:active {
+    scale: 0.92;
+    background-color: #3182ce;
+}
+/* Conteneur principal de la carte */
+.flashcard-container {
+    width: 95% !important;
+    max-width: 650px !important;
+    min-height: 280px; /* Force une bonne hauteur de zone de travail */
+    margin: 0 auto;
+    padding: 16px 12px !important; /* Marges réduites au bord */
+    
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Zone d'affichage des mots / questions */
+.card-text-zone {
+    width: 100%;
+    padding: 0 8px;
+    word-break: break-word; /* Évite les dépassements de texte long */
+}
+
+/* Ajustement des tailles de texte */
+.card-text-main {
+    font-size: clamp(1.4rem, 4.5vw, 2.2rem); /* Dynamic font responsive */
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 12px;
+}
+
+.card-text-sub {
+    font-size: clamp(1rem, 3.5vw, 1.4rem);
+    line-height: 1.3;
+    opacity: 0.9;
+}

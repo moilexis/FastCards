@@ -11,6 +11,9 @@
     <h2 style="margin-bottom: 25px;">MODE ÉCRITURE - {{ collection.name }}</h2>
 
     <!-- CARTE PRINCIPALE -->
+     <button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
+         	&lt;
+    </button>
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 220px; 
     display: flex; flex-direction: column; justify-content: center; position: relative; 
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 30px; margin-left: 10px; margin-right: 10px;">
@@ -95,33 +98,40 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
+// Affiche la carte actuelle
 function renderCard() {
     if (currentIndex >= cards.length) {
         saveSessionData();
-        alert("Session d'écriture terminée ! 🎉");
+        alert("Session de révision terminée ! 🎉");
         window.location.href = "{{ url_for('view_collection', collection_id=collection.id) }}";
         return;
     }
 
-    isAnswered = false;
-    readyForNext = false;
+    // Gestion de l'affichage du bouton retour (caché à la 1ère carte)
+    const prevBtn = document.getElementById('btn-prev-card');
+    if (prevBtn) {
+        prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
+    }
+
     const card = cards[currentIndex];
     
+    // Ton code habituel de rendu de la carte...
     document.getElementById("recto-text").innerText = card.question;
-    document.getElementById("expected-answer").innerText = card.answer;
-    document.getElementById("expected-answer").style.display = "none";
     
-    const input = document.getElementById("user-input");
-    input.value = "";
-    document.getElementById("write-form").style.display = "flex";
-    document.getElementById("feedback-box").style.display = "none";
-    
-    document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
-    document.getElementById("progress-text").innerText = `${currentIndex + 1} / ${cards.length}`;
-    
-    setTimeout(() => input.focus(), 100);
+    // Mise à jour de la progression
+    const progressEl = document.getElementById("progress-text");
+    if (progressEl) {
+        progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;
+    }
 }
 
+// fonction pour revenir en arrière
+function prevCard() {
+    if (currentIndex > 0) {
+        currentIndex--;
+        renderCard();
+    }
+}
 defNormalize = (str) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
