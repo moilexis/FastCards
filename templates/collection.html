@@ -166,6 +166,11 @@
        style="flex: 1; background: #805ad5; color: white; padding: 15px; text-align: center; border-radius: 12px; text-decoration: none; font-weight: bold;">
          Saisie Clavier
     </a>
+    <!-- Bouton Mode Révision pure -->
+    <a href="{{ url_for('select_review_source', collection_id=collection.id, mode='pure') }}" 
+       style="flex: 1; background: #d5aa5a; color: white; padding: 15px; text-align: center; border-radius: 12px; text-decoration: none; font-weight: bold;">
+         Apprendre
+    </a>
 </div>
 
     <div class="toggle-divider" onclick="toggleDrawer()">

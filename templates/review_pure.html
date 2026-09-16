@@ -1,6 +1,64 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<style>
+/* Style du bouton Flèche Retour Fixe */
+#btn-prev-card {
+    position: fixed;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background-color: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 999;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#btn-prev-card svg {
+    width: 22px;
+    height: 22px;
+    stroke: #ffffff;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    margin-right: 2px;
+}
+
+#btn-prev-card:active {
+    transform: translateY(-50%) scale(0.92);
+    background-color: #3182ce;
+}
+
+/* Optimisation de la carte */
+.flashcard-main-box {
+    background: #ffffff;
+    color: #1a202c;
+    border-radius: 25px;
+    padding: 25px 15px !important;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    margin: 0 auto 30px auto;
+    width: 96%;
+    max-width: 600px;
+}
+</style>
+
 <div style="text-align: center; max-width: 600px; margin: 0 auto;">
     
     <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
@@ -9,41 +67,40 @@
         <a href="{{ url_for('view_collection', collection_id=collection.id) }}" onclick="saveSessionData()" style="color: #e53e3e; text-decoration: none; font-weight: bold;">✕ Quitter</a>
     </div>
 
-    <h2 style="margin-bottom: 25px;">COLLECTION - {{collection.name}}</h2>
+    <h2 style="margin-bottom: 25px;">MODE PURE - {{ collection.name }}</h2>
+
     <!-- Bouton Flèche Retour sur le bord gauche -->
-<button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
-     	&lt;
-</button>
+    <button type="button" id="btn-prev-card" onclick="prevCard(event)" style="display: none;" aria-label="Carte précédente">
+        <svg viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+    </button>
+
     <!-- CONTAINER GRANDE CARTE -->
-    <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
-    display: flex; flex-direction: column; justify-content: center; position: relative; 
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); margin-bottom: 40px; margin-left: 10px; margin-right: 10px;" onclick="toggleAnswer()">
+    <div class="flashcard-main-box" onclick="toggleAnswer()">
         
         <!-- Étoile Cliquable Difficile -->
-        <button id="star-btn" type="button" onclick="toggleDifficult()" style="position: absolute; top: 10px; left: 10px; background: none; border: none; font-size: 2.2em; cursor: pointer; color: #cbd5e0; transition: color 0.2s;" title="Marquer comme difficile">
+        <button id="star-btn" type="button" onclick="toggleDifficult(event)" style="position: absolute; top: 12px; left: 12px; background: none; border: none; font-size: 2em; cursor: pointer; color: #cbd5e0; transition: color 0.2s;" title="Marquer comme difficile">
             ★
         </button>
         
         <!-- Contenu textuel interactif -->
-        <div id="card-content" style="cursor: pointer;" >
-            <div id="recto-text" style="font-size: 1.2em; font-weight: bold; text-transform: uppercase; overflow: hidden;">
+        <div id="card-content" style="cursor: pointer; width: 100%;" >
+            <div id="recto-text" style="font-size: 1.3em; font-weight: bold; text-transform: uppercase; overflow-wrap: break-word; word-break: break-word;">
                 Chargement...
             </div>
-            <div id="verso-text" style="font-size: 1.1em; color: #4a5568; margin-top: 20px; display: none; border-top: 3px dashed #a6aeb8; padding-top: 15px; overflow: hidden;">
+            
+            <div id="verso-text" style="font-size: 1.15em; color: #4a5568; margin-top: 20px; display: none; border-top: 2px dashed #cbd5e0; padding-top: 15px; overflow-wrap: break-word; word-break: break-word;">
             </div>
             
-            <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 30px; font-style: italic;">Retourne la carte en cliquant dessus</p>
+            <p id="hint" style="color: #718096; font-size: 0.85em; margin-top: 25px; font-style: italic;">Retourne la carte en cliquant dessus</p>
         </div>
     </div>
 
-    <!-- BOUTONS DE SÉLECTION (JE SAIS PAS / JE SAIS) -->
-    <div style="display: flex; gap: 15px; margin-top: 20px;">
-        <button type="button" onclick="submitAnswer(0)" style="flex: 1; background: rgba(229, 62, 62, 0.1); border: 2px solid #e53e3e; color: #e53e3e; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
-            Je sais pas
-        </button>
-
-        <button type="button" onclick="submitAnswer(1)" style="flex: 1; background: rgba(56, 161, 105, 0.1); border: 2px solid #38a169; color: #38a169; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
-            Je sais
+    <!-- UNIQUE BOUTON SUIVANT -->
+    <div style="margin-top: 20px;">
+        <button type="button" onclick="nextCard()" style="width: 100%; background: rgba(49, 130, 206, 0.1); border: 2px solid #3182ce; color: #3182ce; padding: 20px 10px; border-radius: 15px; font-size: 1.2em; font-weight: bold; cursor: pointer;">
+            Suivant 
         </button>
     </div>
 </div>
@@ -52,10 +109,8 @@
 let cards = [];
 let currentIndex = 0;
 
-// MESURE DES STATISTIQUES DE SESSION
 const startTime = Date.now();
 let cardsViewed = 0;
-let cardsSuccess = 0;
 let sessionSaved = false;
 
 const reviewSource = "{{ source }}";
@@ -66,16 +121,14 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(data => {
             let allCards = data.cards;
 
-            // Filtrage selon la source choisie
             if (reviewSource === 'not_validated') {
                 cards = allCards.filter(c => c.is_known !== 1);
             } else if (reviewSource === 'difficult') {
                 cards = allCards.filter(c => c.is_difficult === 1);
             } else {
-                cards = allCards; // 'all'
+                cards = allCards;
             }
 
-            // Mélange des cartes retenues
             cards.sort(() => Math.random() - 0.5);
 
             if (cards.length > 0) {
@@ -87,7 +140,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 });
 
-// Affiche la carte actuelle
 function renderCard() {
     if (currentIndex >= cards.length) {
         saveSessionData();
@@ -96,7 +148,6 @@ function renderCard() {
         return;
     }
 
-    // Gestion du bouton retour
     const prevBtn = document.getElementById('btn-prev-card');
     if (prevBtn) {
         prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
@@ -104,38 +155,33 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Injection des données
     document.getElementById("recto-text").innerHTML = card.question;
     
     const versoEl = document.getElementById("verso-text");
-    versoEl.innerHTML = card.answer || "(Pas de réponse)";
-    versoEl.style.display = "none"; // Masqué au départ
+    versoEl.innerHTML = card.answer;
+    versoEl.style.display = "none";
     
-    const hintEl = document.getElementById("hint");
-    if (hintEl) hintEl.style.display = "block"; // Affiche l'indication "Cliquer pour retourner"
+    document.getElementById("hint").style.display = "block";
     
-    // Statut étoile
     const starBtn = document.getElementById("star-btn");
     if (starBtn) {
         starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
     }
     
-    // Progression
     const progressEl = document.getElementById("progress-text");
     if (progressEl) {
-        progressEl.innerHTML = `${currentIndex + 1} / ${cards.length}`;
+        progressEl.innerText = `${currentIndex + 1} / ${cards.length}`;
     }
 }
 
-// fonction pour revenir en arrière
-function prevCard() {
+function prevCard(event) {
+    if (event) event.stopPropagation();
     if (currentIndex > 0) {
         currentIndex--;
         renderCard();
     }
 }
 
-// Afficher/Masquer la réponse
 function toggleAnswer() {
     const verso = document.getElementById("verso-text");
     const hint = document.getElementById("hint");
@@ -148,8 +194,8 @@ function toggleAnswer() {
     }
 }
 
-// Basculer l'état difficile (Étoile)
-function toggleDifficult() {
+function toggleDifficult(event) {
+    if (event) event.stopPropagation();
     const card = cards[currentIndex];
     card.is_difficult = card.is_difficult === 1 ? 0 : 1;
     document.getElementById("star-btn").style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
@@ -157,27 +203,14 @@ function toggleDifficult() {
     fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
 }
 
-// Enregistrer la réponse
-function submitAnswer(knows) {
+// Passer à la carte suivante sans modifier is_known
+function nextCard() {
     if (cards.length === 0) return;
-    
-    // Incrementer les compteurs de session
     cardsViewed++;
-    if (knows === 1) cardsSuccess++;
-
-    const card = cards[currentIndex];
-    
-    fetch(`/card/${card.id}/answer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ knows: knows })
-    });
-
     currentIndex++;
     renderCard();
 }
 
-// Envoi asynchrone des données de session en BDD
 function saveSessionData() {
     if (sessionSaved) return;
     
@@ -185,18 +218,17 @@ function saveSessionData() {
     if (cardsViewed === 0 || durationSeconds < 2) return;
 
     const payload = JSON.stringify({
-    collection_id: parseInt("{{ collection.id }}"),
-    mode: "flashcards normal",
-    duration_seconds: durationSeconds,
-    cards_viewed: cardsViewed,
-    cards_success: cardsSuccess
-});
+        collection_id: parseInt("{{ collection.id }}"),
+        mode: "pure review",
+        duration_seconds: durationSeconds,
+        cards_viewed: cardsViewed,
+        cards_success: 0
+    });
 
     navigator.sendBeacon('/api/study_session', payload);
     sessionSaved = true;
 }
 
-// Sauvegarde automatique lors du changement ou de la fermeture de page
 window.addEventListener('beforeunload', saveSessionData);
 </script>
 {% endblock %}
