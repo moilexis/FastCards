@@ -1,5 +1,13 @@
 {% extends 'base.html' %}
 {% block content %}
+
+<style>
+.card-bold-text {
+    color: #805ad5;
+    font-weight: bold;
+}
+</style>
+
 <div style="text-align: center; max-width: 600px; margin: 0 auto;" id="main-container">
     
     <!-- EN-TÊTE -->
@@ -55,6 +63,26 @@ let isAnswered = false;
 let readyForNext = false;
 
 const reviewSource = "{{ source }}";
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.innerText = text || '';
+    return div.innerHTML;
+}
+
+function parseMarkdownBold(text) {
+    const safeText = escapeHtml(text);
+    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+}
+
+// Retire les marques de gras Markdown pour la comparaison
+const stripMarkdownBold = (str) => {
+    return (str || '').replace(/\*\*/g, '').trim();
+};
+
+const defNormalize = (str) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
 
 document.addEventListener("DOMContentLoaded", function() {
     fetch('/collection/{{ collection.id }}/data')
@@ -120,8 +148,8 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    document.getElementById("recto-text").innerHTML = card.question;
-    document.getElementById("expected-answer").innerHTML = card.answer;
+    document.getElementById("recto-text").innerHTML = parseMarkdownBold(card.question);
+    document.getElementById("expected-answer").innerHTML = parseMarkdownBold(card.answer);
 
     const starBtn = document.getElementById("star-btn");
     if (starBtn) {
@@ -142,15 +170,6 @@ function prevCard(e) {
     }
 }
 
-const defNormalize = (str) => {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-};
-
-// Nettoie toutes les balises HTML (<b>, <i>, etc.) pour la comparaison
-const stripHTML = (str) => {
-    return str.replace(/<[^>]*>/g, '').trim();
-};
-
 function checkAnswer(event) {
     event.preventDefault();
     if (isAnswered) return;
@@ -158,8 +177,8 @@ function checkAnswer(event) {
     const userInputRaw = document.getElementById("user-input").value.trim();
     const expectedRaw = cards[currentIndex].answer;
 
-    // 1. Suppression du HTML avant traitement des alternatives
-    const cleanExpected = stripHTML(expectedRaw);
+    // Suppression des ** pour la vérification
+    const cleanExpected = stripMarkdownBold(expectedRaw);
 
     // Découpage des alternatives séparées par |
     const rawOptions = cleanExpected.split('|').map(s => s.trim());
@@ -174,7 +193,6 @@ function checkAnswer(event) {
 
     let isCorrect = false;
 
-    // Test de la saisie utilisateur contre chaque option
     for (const option of possibleAnswers) {
         const userWords = userInputRaw.split(/\s+/).filter(Boolean);
         const expectedWords = option.split(/\s+/).filter(Boolean);
@@ -208,7 +226,6 @@ function checkAnswer(event) {
         }
     }
 
-    // Affichage des résultats & mise à jour BDD
     cardsViewed++;
     const card = cards[currentIndex];
     

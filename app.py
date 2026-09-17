@@ -273,8 +273,8 @@ def view_collection(collection_id):
     with db.get_db_connection() as conn:
         last_session = conn.execute('''
             SELECT 
-                strftime('%d/%m/%Y', created_at, 'localtime') AS date_formatted,
-                strftime('%H:%M', created_at, 'localtime') AS time_formatted
+                strftime('%d/%m/%Y', created_at, '+2 hours') AS date_formatted,
+                strftime('%H:%M', created_at, '+2 hours') AS time_formatted
             FROM study_sessions 
             WHERE collection_id = ? 
             ORDER BY created_at DESC LIMIT 1

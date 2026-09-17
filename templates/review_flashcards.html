@@ -1,6 +1,13 @@
 {% extends 'base.html' %}
 {% block content %}
 
+<style>
+    .card-bold-text {
+        color: #805ad5;
+        font-weight: bold;
+    }
+</style>
+
 <div style="text-align: center; max-width: 600px; margin: 0 auto;">
     
     <!-- EN-TÊTE : PROGRESSION ET BOUTON QUITTER -->
@@ -11,9 +18,10 @@
 
     <h2 style="margin-bottom: 25px;">COLLECTION - {{collection.name}}</h2>
     <!-- Bouton Flèche Retour sur le bord gauche -->
-<button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
+    <button type="button" id="btn-prev-card" onclick="prevCard()" style="display: none;">
      	&lt;
-</button>
+    </button>
+
     <!-- CONTAINER GRANDE CARTE -->
     <div style="background: #ffffff; color: #1a202c; border-radius: 30px; padding: 40px; min-height: 250px; 
     display: flex; flex-direction: column; justify-content: center; position: relative; 
@@ -60,22 +68,31 @@ let sessionSaved = false;
 
 const reviewSource = "{{ source }}";
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.innerText = text || '';
+    return div.innerHTML;
+}
+
+function parseMarkdownBold(text) {
+    const safeText = escapeHtml(text);
+    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     fetch('/collection/{{ collection.id }}/data')
         .then(res => res.json())
         .then(data => {
             let allCards = data.cards;
 
-            // Filtrage selon la source choisie
             if (reviewSource === 'not_validated') {
                 cards = allCards.filter(c => c.is_known !== 1);
             } else if (reviewSource === 'difficult') {
                 cards = allCards.filter(c => c.is_difficult === 1);
             } else {
-                cards = allCards; // 'all'
+                cards = allCards;
             }
 
-            // Mélange des cartes retenues
             cards.sort(() => Math.random() - 0.5);
 
             if (cards.length > 0) {
@@ -87,7 +104,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 });
 
-// Affiche la carte actuelle
 function renderCard() {
     if (currentIndex >= cards.length) {
         saveSessionData();
@@ -96,7 +112,6 @@ function renderCard() {
         return;
     }
 
-    // Gestion du bouton retour
     const prevBtn = document.getElementById('btn-prev-card');
     if (prevBtn) {
         prevBtn.style.display = currentIndex > 0 ? 'flex' : 'none';
@@ -104,30 +119,26 @@ function renderCard() {
 
     const card = cards[currentIndex];
     
-    // Injection des données
-    document.getElementById("recto-text").innerHTML = card.question;
+    document.getElementById("recto-text").innerHTML = parseMarkdownBold(card.question);
     
     const versoEl = document.getElementById("verso-text");
-    versoEl.innerHTML = card.answer || "(Pas de réponse)";
-    versoEl.style.display = "none"; // Masqué au départ
+    versoEl.innerHTML = parseMarkdownBold(card.answer || "(Pas de réponse)");
+    versoEl.style.display = "none";
     
     const hintEl = document.getElementById("hint");
-    if (hintEl) hintEl.style.display = "block"; // Affiche l'indication "Cliquer pour retourner"
+    if (hintEl) hintEl.style.display = "block";
     
-    // Statut étoile
     const starBtn = document.getElementById("star-btn");
     if (starBtn) {
         starBtn.style.color = card.is_difficult === 1 ? "#f6ad55" : "#cbd5e0";
     }
     
-    // Progression
     const progressEl = document.getElementById("progress-text");
     if (progressEl) {
         progressEl.innerHTML = `${currentIndex + 1} / ${cards.length}`;
     }
 }
 
-// fonction pour revenir en arrière
 function prevCard() {
     if (currentIndex > 0) {
         currentIndex--;
@@ -135,7 +146,6 @@ function prevCard() {
     }
 }
 
-// Afficher/Masquer la réponse
 function toggleAnswer() {
     const verso = document.getElementById("verso-text");
     const hint = document.getElementById("hint");
@@ -148,7 +158,6 @@ function toggleAnswer() {
     }
 }
 
-// Basculer l'état difficile (Étoile)
 function toggleDifficult() {
     const card = cards[currentIndex];
     card.is_difficult = card.is_difficult === 1 ? 0 : 1;
@@ -157,11 +166,9 @@ function toggleDifficult() {
     fetch(`/card/${card.id}/toggle_difficult`, { method: 'POST' });
 }
 
-// Enregistrer la réponse
 function submitAnswer(knows) {
     if (cards.length === 0) return;
     
-    // Incrementer les compteurs de session
     cardsViewed++;
     if (knows === 1) cardsSuccess++;
 
@@ -177,7 +184,6 @@ function submitAnswer(knows) {
     renderCard();
 }
 
-// Envoi asynchrone des données de session en BDD
 function saveSessionData() {
     if (sessionSaved) return;
     
@@ -185,18 +191,17 @@ function saveSessionData() {
     if (cardsViewed === 0 || durationSeconds < 2) return;
 
     const payload = JSON.stringify({
-    collection_id: parseInt("{{ collection.id }}"),
-    mode: "flashcards normal",
-    duration_seconds: durationSeconds,
-    cards_viewed: cardsViewed,
-    cards_success: cardsSuccess
-});
+        collection_id: parseInt("{{ collection.id }}"),
+        mode: "flashcards normal",
+        duration_seconds: durationSeconds,
+        cards_viewed: cardsViewed,
+        cards_success: cardsSuccess
+    });
 
     navigator.sendBeacon('/api/study_session', payload);
     sessionSaved = true;
 }
 
-// Sauvegarde automatique lors du changement ou de la fermeture de page
 window.addEventListener('beforeunload', saveSessionData);
 </script>
 {% endblock %}

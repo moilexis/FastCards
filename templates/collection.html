@@ -74,7 +74,6 @@
         gap: 10px;
         margin-top: 15px;
         width: 100%;
-        
     }
     .modes-action-row > *:last-child:nth-child(odd) {
         grid-column: 1 / -1;
@@ -171,6 +170,24 @@
     .star-icon { font-size: 1.3em; color: #718096; cursor: default; }
     .star-icon.difficult { color: #f6ad55; }
 
+    .card-edit-textarea {
+        background: #1a202c;
+        color: #ffffff;
+        border: 1px solid #4a5568;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 50px;
+        font-family: inherit;
+    }
+
+    .card-bold-text {
+        color: #9f7aea;
+        font-weight: bold;
+    }
 </style>
 
 <div class="revision-hub">
@@ -194,7 +211,6 @@
     <h3 style="font-size: 1.05em; margin: 0; color: #805ad5; margin-bottom: 15px;">Réviser</h3>
     <div class="action-review-bar">
         <div class="action-review-info">
-            
             <span style="color: #a0aec0; font-size: 0.85em;">
                 {% if last_reviewed_date %}
                     Dernière fois le : <strong>{{ last_reviewed_date }}</strong> <span class="time-part">à {{ last_reviewed_time }}</span>
@@ -273,7 +289,6 @@
             <div id="card-row-{{ card.id }}" style="display: flex; flex-direction: column; justify-content: space-between; background: #2d3748; border: 1px solid #4a5568; padding: 12px; border-radius: 12px; min-height: 100px; box-sizing: border-box;">
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-
                     <span class="star-icon {{ 'difficult' if card.is_difficult }}" 
                         onclick="toggleCardDifficulty('{{ card.id }}', this)"
                         style="cursor: pointer; font-size: 1.3em;">★</span>
@@ -286,21 +301,20 @@
                         </button>
                     </div>
                     {% endif %}
-
                 </div>
 
                 <div id="card-view-{{ card.id }}" style="text-align: left; word-break: break-word;">
-                    <div id="q-text-{{ card.id }}" style="color: #ffffff; font-weight: 600; font-size: 0.9em; margin-bottom: 4px;">{{ card.question }}</div>
-                    <div id="a-text-{{ card.id }}" style="color: #a0aec0; font-size: 0.8em; font-style: italic;">{{ card.answer }}</div>
+                    <div id="q-text-{{ card.id }}" class="card-question-content" data-raw="{{ card.question }}" style="color: #ffffff; font-weight: 600; font-size: 0.9em; margin-bottom: 4px;"></div>
+                    <div id="a-text-{{ card.id }}" class="card-answer-content" data-raw="{{ card.answer }}" style="color: #a0aec0; font-size: 0.8em; font-style: italic;"></div>
                 </div>
 
                 {% if not current_user.is_guest %}
                 <div id="card-edit-{{ card.id }}" style="display: none; flex-direction: column; gap: 6px;">
-                    <input type="text" id="edit-q-{{ card.id }}" value="{{ card.question }}" style="background: #1a202c; color: white; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.85em; width: 100%; box-sizing: border-box;">
-                    <input type="text" id="edit-a-{{ card.id }}" value="{{ card.answer }}" style="background: #1a202c; color: #a0aec0; border: 1px solid #4a5568; padding: 4px 6px; border-radius: 4px; font-size: 0.8em; width: 100%; box-sizing: border-box;">
+                    <textarea id="edit-q-{{ card.id }}" class="card-edit-textarea" rows="2">{{ card.question }}</textarea>
+                    <textarea id="edit-a-{{ card.id }}" class="card-edit-textarea" rows="2">{{ card.answer }}</textarea>
                     <div style="display: flex; gap: 6px; margin-top: 2px;">
-                        <button type="button" onclick="saveCardEdit('{{ card.id }}')" style="background: #38a169; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75em; cursor: pointer; flex: 1;">OK</button>
-                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: #718096; color: white; border: none; border-radius: 4px; padding: 3px 8px; font-size: 0.75em; cursor: pointer;">✕</button>
+                        <button type="button" onclick="saveCardEdit('{{ card.id }}')" style="background: #38a169; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.75em; cursor: pointer; flex: 1;">OK</button>
+                        <button type="button" onclick="toggleEditCard('{{ card.id }}')" style="background: #718096; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.75em; cursor: pointer;">✕</button>
                     </div>
                 </div>
                 {% endif %}
@@ -337,7 +351,28 @@
 <script>
 let userFavorites = JSON.parse('{{ user_favs|default(["fc_not_validated", "fc_all", "fc_difficult"])|tojson }}');
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.innerText = text || '';
+    return div.innerHTML;
+}
+
+function parseMarkdownBold(text) {
+    const safeText = escapeHtml(text);
+    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+}
+
+function renderAllCardsMarkdown() {
+    document.querySelectorAll('.card-question-content').forEach(el => {
+        el.innerHTML = parseMarkdownBold(el.getAttribute('data-raw'));
+    });
+    document.querySelectorAll('.card-answer-content').forEach(el => {
+        el.innerHTML = parseMarkdownBold(el.getAttribute('data-raw'));
+    });
+}
+
 document.addEventListener("DOMContentLoaded", function() {
+    renderAllCardsMarkdown();
     updateFavoritesUI();
 });
 
@@ -405,17 +440,23 @@ function toggleDrawer() {
 }
 
 function invertLocalCards() {
-  document.querySelectorAll('[id^="q-text-"]').forEach(qEl => {
-    const cardId = qEl.id.replace('q-text-', '');
-    const aEl = document.getElementById('a-text-' + cardId);
-    
-    if (aEl) {
-      const temp = qEl.innerText;
-      qEl.innerText = aEl.innerText;
-      aEl.innerText = temp;
-    }
-  });
+    document.querySelectorAll('.card-question-content').forEach(qEl => {
+        const cardId = qEl.id.replace('q-text-', '');
+        const aEl = document.getElementById('a-text-' + cardId);
+        
+        if (aEl) {
+            const rawQ = qEl.getAttribute('data-raw');
+            const rawA = aEl.getAttribute('data-raw');
+
+            qEl.setAttribute('data-raw', rawA);
+            aEl.setAttribute('data-raw', rawQ);
+
+            qEl.innerHTML = parseMarkdownBold(rawA);
+            aEl.innerHTML = parseMarkdownBold(rawQ);
+        }
+    });
 }
+
 function toggleEditCard(cardId) {
     const viewDiv = document.getElementById('card-view-' + cardId);
     const editDiv = document.getElementById('card-edit-' + cardId);
@@ -439,8 +480,15 @@ function saveCardEdit(cardId) {
         body: JSON.stringify({ question: newQ, answer: newA })
     }).then(res => res.json()).then(data => {
         if (data.status === 'ok') {
-            document.getElementById('q-text-' + cardId).innerText = newQ;
-            document.getElementById('a-text-' + cardId).innerText = newA;
+            const qEl = document.getElementById('q-text-' + cardId);
+            const aEl = document.getElementById('a-text-' + cardId);
+
+            qEl.setAttribute('data-raw', newQ);
+            aEl.setAttribute('data-raw', newA);
+
+            qEl.innerHTML = parseMarkdownBold(newQ);
+            aEl.innerHTML = parseMarkdownBold(newA);
+
             toggleEditCard(cardId);
         }
     });
@@ -459,6 +507,7 @@ function deleteCardAsync(cardId) {
         }
     });
 }
+
 function toggleCardDifficulty(cardId, el) {
     fetch(`/card/${cardId}/toggle_difficult`, {
         method: 'POST',
