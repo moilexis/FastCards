@@ -194,6 +194,16 @@ def get_cards_by_collection(collection_id):
             "SELECT * FROM cards WHERE collection_id = ?",
             (collection_id,)
         ).fetchall()
+
+def delete_cards_by_collection(collection_id, user_id):
+    with get_db_connection() as conn:
+        conn.execute('''
+            DELETE FROM cards 
+            WHERE collection_id = ? AND collection_id IN (
+                SELECT id FROM collections WHERE user_id = ?
+            )
+        ''', (collection_id, user_id))
+        conn.commit()
     
 def delete_card(card_id, user_id):
     with get_db_connection() as conn:

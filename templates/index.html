@@ -2,74 +2,49 @@
 
 {% block content %}
 <style>
-/* Style du texte en gras */
-.card-bold-text {
-    color: #6b46c1;
-    font-weight: 700;
-}
+    .dropdown { 
+        position: relative; 
+        display: inline-block; 
+    }
 
-/* Conteneur principal du texte à trou */
-#verso-container {
-    font-size: 1.25em;
-    line-height: 2.2;
-    color: #2d3748;
-    word-break: break-word;
-}
+    .dropdown-content {
+        display: none; 
+        position: absolute; 
+        right: 0; 
+        top: 100%;
+        background-color: #1a202c; 
+        min-width: 170px; 
+        box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.6); 
+        z-index: 10000;
+        border-radius: 6px; 
+        border: 1px solid #4a5568;
+        overflow: hidden;
+    }
+    .dropdown-content button, .dropdown-content a {
+        color: #e2e8f0; padding: 8px 12px; text-decoration: none; 
+        display: block; width: 100%; text-align: left; 
+        background: none; border: none; font-size: 0.85em; cursor: pointer;
+    }
+    .dropdown-content button:hover, .dropdown-content a:hover { background-color: #2d3748; }
+    .show { display: block; }
 
-/* Style moderne pour les champs de texte */
-.cloze-input {
-    background: #f7fafc;
-    color: #2b6cb0;
-    font-weight: 600;
-    font-size: 0.95em;
-    font-family: inherit;
-    border: none;
-    border-bottom: 2px solid #cbd5e0;
-    border-radius: 4px 4px 0 0;
-    padding: 2px 8px;
-    margin: 0 4px;
-    text-align: center;
-    outline: none;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02);
-}
+    .forms-grid input, .forms-grid select {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
 
-/* Effet au survol et au clic */
-.cloze-input:hover {
-    background: #edf2f7;
-    border-bottom-color: #a0aec0;
-}
+    details {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    details[open] { border-color: #ffeebc !important; }
+    details[open] > summary { border-color: #ffeebc; }
 
-.cloze-input:focus {
-    background: #ebf8ff;
-    color: #2b6cb0;
-    border-bottom-color: #3182ce;
-    box-shadow: 0 2px 4px rgba(49, 130, 206, 0.15);
-}
-
-/* État valide */
-.cloze-input.valid {
-    background-color: #f0fff4 !important;
-    color: #276749 !important;
-    border-bottom: 2px solid #38a169 !important;
-    font-weight: 700;
-}
-
-/* État invalide */
-.cloze-input.invalid {
-    background-color: #fff5f5 !important;
-    color: #9b2c2c !important;
-    border-bottom: 2px solid #e53e3e !important;
-    animation: shake 0.3s ease-in-out;
-}
-
-/* Petit effet de tremblement en cas d'erreur */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-4px); }
-    40%, 80% { transform: translateX(4px); }
-}
-
+    @media (max-width: 768px) {
+        .forms-grid { grid-template-columns: 1fr !important; }
+    }
 </style>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">

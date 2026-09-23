@@ -713,6 +713,23 @@ def export_collection_txt(collection_id):
         headers={"Content-disposition": f"attachment; filename={filename}"}
     )
 
+@app.route('/collection/<int:collection_id>/empty', methods=['POST'])
+@login_required
+def empty_collection(collection_id):
+    user_id = current_user.owner_id
+    
+    # Vérification que la collection appartient bien à l'utilisateur
+    collection = db.get_collection_details(collection_id, user_id)
+    if not collection:
+        flash("Collection introuvable.", "danger")
+        return redirect(url_for('index'))
+    
+    # Suppression de toutes les cartes de cette collection
+    db.delete_cards_by_collection(collection_id, user_id)
+    
+    flash("Toutes les cartes de la collection ont été supprimées.", "success")
+    return redirect(url_for('view_collection', collection_id=collection_id))
+
 @app.route('/reset_my_favorites')
 @login_required
 def reset_my_favorites():
