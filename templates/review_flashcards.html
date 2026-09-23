@@ -76,7 +76,7 @@ function escapeHtml(text) {
 
 function parseMarkdownBold(text) {
     const safeText = escapeHtml(text);
-    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+    return safeText.replace(/\*(.*?)\*/g, '<strong class="card-bold-text">$1</strong>');
 }
 
 document.addEventListener("DOMContentLoaded", function() {

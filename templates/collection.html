@@ -240,6 +240,9 @@
         <a href="{{ url_for('select_review_source', collection_id=collection.id, mode='pure') }}" class="btn-mode-main" style="background: #d5aa5a;">
              Apprendre
         </a>
+        <a href="{{ url_for('select_review_source', collection_id=collection.id, mode='cloze') }}" class="btn-mode-main" style="background: #38a169;">
+         Texte à trous
+        </a>
     </div>
 
     <div class="toggle-divider" onclick="toggleDrawer()">
@@ -359,7 +362,7 @@ function escapeHtml(text) {
 
 function parseMarkdownBold(text) {
     const safeText = escapeHtml(text);
-    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+    return safeText.replace(/\*(.*?)\*/g, '<strong class="card-bold-text">$1</strong>');
 }
 
 function renderAllCardsMarkdown() {

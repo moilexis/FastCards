@@ -72,12 +72,12 @@ function escapeHtml(text) {
 
 function parseMarkdownBold(text) {
     const safeText = escapeHtml(text);
-    return safeText.replace(/\*\*(.*?)\*\*/g, '<strong class="card-bold-text">$1</strong>');
+    return safeText.replace(/\*(.*?)\*/g, '<strong class="card-bold-text">$1</strong>');
 }
 
 // Retire les marques de gras Markdown pour la comparaison
 const stripMarkdownBold = (str) => {
-    return (str || '').replace(/\*\*/g, '').trim();
+    return (str || '').replace(/\*/g, '').trim();
 };
 
 const defNormalize = (str) => {

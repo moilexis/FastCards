@@ -341,6 +341,8 @@ def start_review_session(collection_id, mode):
         return render_template('review_write.html', collection=collection, source=source, progress=(1, stats['total']), hide_navbar=True)
     elif mode == 'pure':
         return render_template('review_pure.html', collection=collection, source=source, progress=(1, stats['total']), hide_navbar=True)
+    elif mode == 'cloze':
+        return render_template('review_cloze.html', collection=collection, source=source, progress=(1, stats['total']), hide_navbar=True)
     else:
         flash("Mode inconnu.", "warning")
         return redirect(url_for('view_collection', collection_id=collection_id))
